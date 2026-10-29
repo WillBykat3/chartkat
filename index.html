@@ -414,56 +414,23 @@ const COURSES = {
     ]
   },
   world: {
+    version: 2,
     title: "AP World Course Chart",
-    intro: "A sample chart built on the College Board’s nine AP World History: Modern units, using the official unit names and date ranges. The terms were chosen for practice and did not come from a teacher. If your class has its own chart, use that one.",
-    themesTitle: "AP World Themes -",
-    themes: [
-      ["THEME 1: HUMANS AND THE ENVIRONMENT (ENV)", ""],
-      ["THEME 2: CULTURAL DEVELOPMENTS AND INTERACTIONS (CDI)", ""],
-      ["THEME 3: GOVERNANCE (GOV)", ""],
-      ["THEME 4: ECONOMIC SYSTEMS (ECN)", ""],
-      ["THEME 5: SOCIAL INTERACTIONS AND ORGANIZATION (SIO)", ""],
-      ["THEME 6: TECHNOLOGY AND INNOVATION (TEC)", ""]
-    ],
-    source: "Sample chart. Unit names, dates and themes follow the College Board AP World History: Modern course framework; the terms are practice picks.",
-    sample: true,
+    nameHeader: "Era",
+    intro: "",
+    themesTitle: "",
+    themes: [],
+    source: "From the AP World course chart, rows 1 and 2.",
+    sample: false,
     eras: [
-      { name: "The Global Tapestry", dates: "1200-1450",
-        b: ["Song Dynasty", "Abbasid Caliphate"],
-        m: ["Delhi Sultanate", "Mali Empire"],
-        e: [{ t: "Aztec Empire", alias: ["Mexica", "Aztecs"] }, { t: "Inca Empire", alias: ["Inca"] }] },
-      { name: "Networks of Exchange", dates: "1200-1450",
-        b: ["Mongol Empire", "Silk Roads"],
-        m: ["Mansa Musa", "Ibn Battuta"],
-        e: ["Black Death", { t: "Zheng He", alias: ["Zheng He’s voyages"] }] },
-      { name: "Land-Based Empires", dates: "1450-1750",
-        b: ["Ottoman Empire", "Safavid Empire"],
-        m: ["Protestant Reformation", "Mughal Empire"],
-        e: ["Qing Dynasty", "Absolutism"] },
-      { name: "Transoceanic Interconnections", dates: "1450-1750",
-        b: ["Columbian Exchange", "Treaty of Tordesillas"],
-        m: ["Manila Galleons", { t: "Mita System", alias: ["Mit’a System", "Mita"] }],
-        e: ["Joint-Stock Companies", { t: "Atlantic Slave Trade", alias: ["Transatlantic Slave Trade"] }] },
-      { name: "Revolutions", dates: "1750-1900",
-        b: ["Enlightenment", "Industrial Revolution"],
-        m: ["French Revolution", "Haitian Revolution"],
-        e: ["Latin American Revolutions", "Meiji Restoration"] },
-      { name: "Consequences of Industrialization", dates: "1750-1900",
-        b: ["Opium Wars", { t: "Sepoy Rebellion", alias: ["Sepoy Mutiny", "Indian Rebellion of 1857"] }],
-        m: ["Suez Canal", "Berlin Conference"],
-        e: ["Ghost Dance", "Boxer Rebellion"] },
-      { name: "Global Conflict", dates: "1900-present",
-        b: ["Mexican Revolution", { t: "World War I", alias: ["World War 1", "WWI", "WW1"] }],
-        m: ["Treaty of Versailles", "Great Depression"],
-        e: [{ t: "World War II", alias: ["World War 2", "WWII", "WW2"] }, "Holocaust"] },
-      { name: "Cold War and Decolonization", dates: "1900-present",
-        b: ["Partition of India", "Truman Doctrine"],
-        m: ["Non-Aligned Movement", "Cuban Missile Crisis"],
-        e: ["Fall of the Berlin Wall", "End of Apartheid"] },
-      { name: "Globalization", dates: "1900-present",
-        b: [{ t: "Universal Declaration of Human Rights", alias: ["UDHR"] }, "Green Revolution"],
-        m: ["Economic Liberalization", { t: "HIV/AIDS", alias: ["AIDS"] }],
-        e: [{ t: "World Trade Organization", alias: ["WTO"] }, "Arab Spring"] }
+      { name: "Post-Classical Era", dates: "600-1450",
+        b: ["Islam", "Caliphates", "Feudalism"],
+        m: ["Silk/Sand/Sea", "Sui/Tang/Song", "Mali/Swahili", "Crusades"],
+        e: ["Mongols/Turks", "Aztec/Inca", "Exploration/Renaissance"] },
+      { name: "Early Modern Era", dates: "1450-1750",
+        b: ["Land Empires", "Maritime Empires", "New World", "Tolerance/Intolerance", "Mercantilism", "Protestant Reformation"],
+        m: ["Columbian Exchange", "silver/sugar", "Scientific Revolution", "Absolutism"],
+        e: ["East Asian isolation", "Enlightenment", "Capitalism"] }
     ]
   }
 };
@@ -491,7 +458,7 @@ function normStrict(s) {
   return s.normalize("NFKC")
     .replace(/[“”„‟″"]/g, '"').replace(/[‘’‚‛′`´']/g, "'")
     .replace(/[‐‑‒–—―−]/g, "-")
-    .replace(/\s*-\s*/g, "-").replace(/\s*,\s*/g, ",")
+    .replace(/\s*-\s*/g, "-").replace(/\s*,\s*/g, ",").replace(/\s*\/\s*/g, "/")
     .replace(/\s+/g, " ").trim().toLowerCase();
 }
 // Loose: letters and digits only, plus a few common spellings.
@@ -560,13 +527,13 @@ function renderPaper(animate) {
   const C = course();
   const rows = new Set(quizRows());
   let h = `<h1 class="doc-title">${esc(C.title)}${C.sample ? '<span class="doc-tag">Sample</span>' : ""}</h1>
-    <p class="doc-intro">${esc(C.intro)}</p>
+    ${C.intro ? `<p class="doc-intro">${esc(C.intro)}</p>` : ""}
     <div class="table" id="table"><div class="hl" id="hl" aria-hidden="true"></div>
-      <div class="tr th"><div>Name</div><div>Dates</div><div>Beginning</div><div>Middle</div><div>End</div></div>`;
+      <div class="tr th"><div>${esc(C.nameHeader || "Name")}</div><div>Dates</div><div>Beginning</div><div>Middle</div><div>End</div></div>`;
   C.eras.forEach((era, ei) => {
     const mine = cells.filter((c) => c.era === ei);
     h += `<div class="tr${rows.has(ei) ? " quiz" : ""}" data-row="${ei}"${rows.has(ei) ? ` style="--qd:${[...rows].indexOf(ei) * 70}ms"` : ""}>
-      <div class="c-name"><span class="lbl">Name</span>${fieldHTML(mine.find((c) => c.kind === "name"))}</div>
+      <div class="c-name"><span class="lbl">${esc(C.nameHeader || "Name")}</span>${fieldHTML(mine.find((c) => c.kind === "name"))}</div>
       <div class="c-dates"><span class="lbl">Dates</span>${fieldHTML(mine.find((c) => c.kind === "dates"))}</div>`;
     COLS.forEach(([k, label]) => {
       h += `<div class="c-col"><span class="lbl">${label}</span><div class="lines">${mine.filter((c) => c.col === k).map(fieldHTML).join("")}</div></div>`;
@@ -574,7 +541,7 @@ function renderPaper(animate) {
     h += `</div>`;
   });
   h += `</div>
-    <section class="themes"><h2>${esc(C.themesTitle)}</h2><ul>${C.themes.map(([t, d]) => `<li><b>${esc(t)}</b>${d ? " " + esc(d) : ""}</li>`).join("")}</ul></section>
+    ${C.themes.length ? `<section class="themes"><h2>${esc(C.themesTitle)}</h2><ul>${C.themes.map(([t, d]) => `<li><b>${esc(t)}</b>${d ? " " + esc(d) : ""}</li>`).join("")}</ul></section>` : ""}
     <p class="src">${esc(C.source)}</p>`;
   const paper = $("#paper");
   paper.innerHTML = h;
@@ -1086,7 +1053,7 @@ document.addEventListener("click", (e) => { if (!e.target.closest(".acct-wrap"))
 function snapshot() {
   if (finished || !hasWork()) return null;
   const b = cells.filter((c) => c.blank);
-  return { v: 1, course: S.course, count: S.count, custom: S.custom, mode: S.mode, exact: S.exact, active,
+  return { v: 1, chart: course().version || 1, course: S.course, count: S.count, custom: S.custom, mode: S.mode, exact: S.exact, active,
     elapsed: startedAt ? Date.now() - startedAt : 0, rowsLabel: rowsLabel(),
     filled: b.filter((c) => locked(c) || c.value.trim()).length, total: b.length,
     cells: b.filter((c) => c.value || c.state).map((c) => ({ k: c.key, v: c.value, s: locked(c) ? c.state : "", f: c.first, m: c.match })) };
@@ -1117,7 +1084,10 @@ addEventListener("pagehide", () => { if (dirty) saveProgress(true); });
 function offerResume() {
   const slot = $("#resumeSlot"); slot.innerHTML = "";
   if (!ACC.name) return;
-  const lbl = label(), p = ACC.progress[lbl];
+  const lbl = label();
+  let p = ACC.progress[lbl];
+  // progress saved against an older version of this chart no longer lines up: drop it
+  if (p && p.state && (p.state.chart || 1) !== (course().version || 1)) { delete ACC.progress[lbl]; p = null; }
   if (!p || !p.state || ACC.offered[lbl]) { if (hasWork()) markDirty(); return; }
   ACC.offered[lbl] = true;
   const st = p.state;

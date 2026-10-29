@@ -61,4 +61,4 @@ Saving the script isn't enough. Go to **Deploy → Manage deployments**, click t
 The chart lives in the `COURSES` object near the top of the `<script>` in `index.html`.
 
 - **APUSH** is transcribed from the *APUSH Course Chart 2026-2027* handout, including the themes page.
-- **AP World** is a **sample**: the unit names, dates and themes follow the College Board's AP World History: Modern framework, but the terms are practice picks and did not come from a teacher.
+- **AP World** is transcribed from the class's AP World course chart. So far it has rows 1 and 2 (Post-Classical Era and Early Modern Era). Add more rows to the `eras` list when they come, and raise `version` if you change existing terms, so old unfinished quizzes aren't offered back.
