@@ -1,0 +1,1091 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Course Chart Drill</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one column app. Setup = stacked choice panels; Quiz = chart grid (5 cols like the paper chart) + sticky word bank (side on desktop, bottom sheet on phones). */
+:root {
+  --bg: #eceff4;
+  --surface: #ffffff;
+  --surface-2: #f6f8fb;
+  --ink: #131c33;
+  --muted: #5a6682;
+  --line: #d6dce7;
+  --line-strong: #a9b4c8;
+  --accent: #2747d6;
+  --accent-soft: #e3e8fd;
+  --accent-ink: #ffffff;
+  --hi: #ffd84a;
+  --hi-ink: #231b00;
+  --good: #19804d;
+  --good-bg: #e0f3e8;
+  --bad: #c42f38;
+  --bad-bg: #fbe5e5;
+  --warn: #9c5d00;
+  --warn-bg: #fcefd3;
+  --shadow: 0 1px 2px rgba(19,28,51,.06), 0 6px 20px rgba(19,28,51,.06);
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 12px;
+  --ease: cubic-bezier(.2,.8,.2,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1320; --surface: #161d2d; --surface-2: #111827; --ink: #e7ebf4; --muted: #95a1ba;
+    --line: #283147; --line-strong: #46526d; --accent: #8098ff; --accent-soft: #1d2650; --accent-ink: #0b1022;
+    --hi: #e9c53c; --hi-ink: #1f1800; --good: #4fca8b; --good-bg: #12321f; --bad: #ff7077; --bad-bg: #3a1a1f;
+    --warn: #f1b54a; --warn-bg: #382a0f; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1320; --surface: #161d2d; --surface-2: #111827; --ink: #e7ebf4; --muted: #95a1ba;
+  --line: #283147; --line-strong: #46526d; --accent: #8098ff; --accent-soft: #1d2650; --accent-ink: #0b1022;
+  --hi: #e9c53c; --hi-ink: #1f1800; --good: #4fca8b; --good-bg: #12321f; --bad: #ff7077; --bad-bg: #3a1a1f;
+  --warn: #f1b54a; --warn-bg: #382a0f; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 48px; }
+
+/* ---------- top bar ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 800; font-size: 1.15rem; letter-spacing: -.01em; }
+.brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--ink); color: var(--bg); display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 6px; }
+.brand-mark i { background: currentColor; border-radius: 1px; opacity: .9; }
+.brand-mark i:nth-child(5) { background: var(--hi); opacity: 1; }
+.top-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill { font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pill.timer { font-family: var(--f-mono); letter-spacing: 0; text-transform: none; }
+
+/* ---------- setup ---------- */
+.hero h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(2rem, 5.2vw, 3.4rem); line-height: 1.02; letter-spacing: -.03em; margin: 0 0 10px; text-wrap: balance; }
+.hero h1 mark { background: linear-gradient(transparent 58%, var(--hi) 58%, var(--hi) 92%, transparent 92%); color: inherit; padding: 0 .08em; }
+.hero p { color: var(--muted); max-width: 60ch; margin: 0 0 26px; font-size: 1.05rem; }
+
+.setup { display: grid; gap: 18px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; box-shadow: var(--shadow); animation: rise .5s var(--ease) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.panel-h h2 { font-family: var(--f-display); font-size: 1.15rem; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+.step { font-family: var(--f-mono); font-size: .75rem; color: var(--muted); margin-right: 8px; }
+.panel-h .hint { color: var(--muted); font-size: .9rem; }
+
+.courses { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.course { text-align: left; border: 2px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 16px; display: grid; gap: 6px; transition: border-color .2s, transform .2s var(--ease), background .2s; position: relative; }
+.course:hover { transform: translateY(-2px); border-color: var(--line-strong); }
+.course[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.course .c-name { font-family: var(--f-display); font-weight: 800; font-size: 1.6rem; letter-spacing: -.02em; line-height: 1; }
+.course .c-full { font-weight: 700; }
+.course .c-sub { color: var(--muted); font-size: .9rem; }
+.course .tag { justify-self: start; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 8px; border-radius: 6px; background: var(--good-bg); color: var(--good); }
+.course .tag.sample { background: var(--warn-bg); color: var(--warn); }
+.course .check { position: absolute; top: 12px; right: 12px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; transform: scale(0); transition: transform .3s var(--ease); }
+.course[aria-pressed="true"] .check { transform: scale(1); }
+
+.rows-ctl { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.stepper { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+.stepper button { width: 44px; height: 44px; border: 0; background: transparent; font-size: 1.3rem; font-weight: 700; }
+.stepper button:hover { background: var(--accent-soft); }
+.stepper output { min-width: 56px; text-align: center; font-family: var(--f-display); font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rows-ctl input[type=range] { flex: 1 1 180px; accent-color: var(--accent); min-width: 0; }
+.rows-label { color: var(--muted); font-size: .95rem; width: 100%; }
+.rows-label b { color: var(--ink); }
+.eras { display: flex; flex-wrap: wrap; gap: 8px; }
+.era-chip { border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 7px 10px; display: flex; gap: 8px; align-items: baseline; transition: all .2s var(--ease); }
+.era-chip .n { font-family: var(--f-mono); font-size: .72rem; color: var(--muted); }
+.era-chip .d { font-family: var(--f-mono); font-size: .75rem; color: var(--muted); }
+.era-chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.era-chip[aria-pressed="true"] .n, .era-chip[aria-pressed="true"] .d { color: inherit; opacity: .7; }
+
+.seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.opt { text-align: left; border: 2px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 12px 14px; display: grid; gap: 3px; transition: border-color .2s, background .2s; }
+.opt b { font-family: var(--f-display); font-size: 1.05rem; }
+.opt span { color: var(--muted); font-size: .88rem; }
+.opt[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.opts-row { display: grid; gap: 16px; }
+.sublabel { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+.toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+.go-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn { border: 0; border-radius: 10px; padding: 12px 18px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: transform .15s var(--ease), background .2s, box-shadow .2s; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
+.btn-primary:hover { transform: translateY(-1px); }
+.btn-big { font-size: 1.1rem; padding: 15px 26px; }
+.btn-ghost { background: var(--surface); border: 1px solid var(--line); }
+.btn-ghost:hover { border-color: var(--line-strong); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* ---------- quiz ---------- */
+.qbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding-block: 10px; margin-bottom: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.qbar h2 { font-family: var(--f-display); font-weight: 800; font-size: 1.25rem; margin: 0; letter-spacing: -.01em; flex: 1 1 auto; min-width: 0; }
+.qbar h2 small { display: block; font-family: var(--f-body); font-weight: 400; font-size: .85rem; color: var(--muted); }
+.progress { flex: 1 1 100%; height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; order: 9; }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .35s var(--ease); }
+.qbar .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.quiz-layout { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.quiz-layout.drag { grid-template-columns: minmax(0, 1fr) 300px; }
+
+.sample-note { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 14px; font-size: .9rem; margin-bottom: 14px; }
+
+.chart { display: grid; gap: 10px; min-width: 0; }
+.chart-head, .era { display: grid; grid-template-columns: 11rem 9.2rem repeat(3, minmax(0, 1fr)); }
+.chart-head { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 0 1px; }
+.chart-head div { padding: 0 12px; }
+.era { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); animation: rise .45s var(--ease) both; animation-delay: calc(var(--i, 0) * 45ms); position: relative; }
+.era.given-era { box-shadow: none; background: var(--surface-2); }
+.era.given-era .given { color: var(--muted); }
+.era.on-quiz { border-color: var(--line-strong); }
+.era > .c { padding: 10px 12px; min-width: 0; border-left: 1px solid var(--line); display: grid; gap: 8px; align-content: start; }
+.era > .c:first-child { border-left: 0; }
+.era .c-label { display: none; }
+.era-num { font-family: var(--f-mono); font-size: .68rem; color: var(--muted); }
+
+.given { padding: 7px 0; font-weight: 400; overflow-wrap: break-word; hyphens: auto; }
+.c.name .given { font-family: var(--f-display); font-weight: 700; font-size: 1.02rem; line-height: 1.15; }
+.c.dates .given, .c.dates input, .c.dates .slot, .chip.k-dates { font-family: var(--f-mono); font-size: .9rem; }
+.given em, .chip em { font-style: italic; }
+
+.cell { position: relative; min-width: 0; }
+.blank-input { width: 100%; min-width: 0; padding: 7px 30px 7px 9px; border: 1.5px dashed var(--line-strong); background: var(--surface-2); border-radius: 8px; transition: border-color .2s, background .2s, box-shadow .2s; }
+.blank-input::placeholder { color: var(--muted); opacity: .6; }
+.blank-input:focus { outline: none; border-style: solid; border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 4px var(--accent-soft); }
+.blank-input:not(:placeholder-shown) { border-style: solid; background: var(--surface); }
+
+.slot { width: 100%; min-height: 38px; border: 1.5px dashed var(--line-strong); background: var(--surface-2); border-radius: 8px; padding: 3px; display: flex; align-items: center; text-align: left; transition: border-color .15s, background .15s, transform .15s var(--ease); }
+.slot .ph { color: var(--muted); opacity: .6; font-size: .85rem; padding: 0 6px; font-family: var(--f-body); }
+.slot.filled { border-style: solid; border-color: var(--line); background: var(--surface); }
+.slot.over { border-color: var(--accent); border-style: solid; background: var(--accent-soft); transform: scale(1.02); }
+.armed .slot:not(.filled):not(.locked) { border-color: var(--accent); animation: breathe 1.4s ease-in-out infinite; }
+
+/* status after checking */
+.cell .mark { position: absolute; right: 8px; top: 9px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: .7rem; font-weight: 800; color: var(--surface); pointer-events: none; animation: pop .35s var(--ease) both; animation-delay: var(--d, 0ms); }
+.cell.good .blank-input, .cell.good .slot { border: 1.5px solid var(--good); background: var(--good-bg); }
+.cell.bad .blank-input, .cell.bad .slot { border: 1.5px solid var(--bad); background: var(--bad-bg); }
+.cell.close .blank-input, .cell.close .slot { border: 1.5px solid var(--warn); background: var(--warn-bg); }
+.cell.good .mark { background: var(--good); }
+.cell.bad .mark { background: var(--bad); }
+.cell.close .mark { background: var(--warn); }
+.cell.good, .cell.bad, .cell.close { animation: settle .45s var(--ease) both; animation-delay: var(--d, 0ms); }
+.cell.bad { animation-name: shake; }
+.fix { font-size: .82rem; margin-top: 4px; color: var(--ink); line-height: 1.3; animation: rise .35s var(--ease) both; animation-delay: var(--d, 0ms); }
+.fix .why { display: block; color: var(--muted); font-size: .76rem; }
+.fix b { font-weight: 700; }
+
+/* chips & bank */
+.chip { display: inline-flex; align-items: center; max-width: 100%; padding: 6px 10px; border-radius: 7px; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: 0 2px 0 var(--line); font-weight: 700; font-size: .9rem; line-height: 1.2; text-align: left; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: transform .15s var(--ease), background .15s, box-shadow .15s, opacity .15s; overflow-wrap: anywhere; }
+.chip:hover { transform: translateY(-1px); box-shadow: 0 3px 0 var(--line); }
+.chip.sel { background: var(--hi); color: var(--hi-ink); border-color: var(--hi); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hi) 40%, transparent); }
+.chip.lifting { opacity: .3; }
+.chip.k-name { font-family: var(--f-display); }
+.slot .chip { box-shadow: none; border-color: transparent; background: transparent; padding: 4px 6px; width: 100%; }
+.slot .chip.locked { cursor: default; }
+.chip.in { animation: pop .3s var(--ease) both; }
+.ghost { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; transform-origin: 20% 50%; box-shadow: 0 12px 30px rgba(0,0,0,.25); background: var(--hi); color: var(--hi-ink); border-color: var(--hi); cursor: grabbing; rotate: -2deg; }
+
+.bank { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 96px); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: calc(100vh - 120px); min-width: 0; }
+.bank-h { padding: 12px 14px 10px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.bank-h h3 { margin: 0; font-family: var(--f-display); font-size: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.bank-h h3 span { font-family: var(--f-mono); font-size: .8rem; color: var(--muted); }
+.bank-help { font-size: .8rem; color: var(--muted); margin: 0; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tab { border: 1px solid var(--line); background: var(--surface-2); border-radius: 99px; padding: 4px 10px; font-size: .78rem; font-weight: 700; }
+.tab[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.bank-body { padding: 12px; overflow: auto; display: flex; flex-wrap: wrap; gap: 7px; align-content: flex-start; min-height: 60px; }
+.bank-body.over { background: var(--accent-soft); }
+.bank-empty { color: var(--muted); font-size: .9rem; padding: 8px 4px; }
+.bank-toggle { display: none; }
+
+/* results */
+.result { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow); animation: rise .5s var(--ease) both; }
+.ring { width: 104px; height: 104px; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { stroke: var(--line); }
+.ring .val { stroke: var(--good); transition: stroke-dashoffset 1.1s var(--ease); }
+.ring .pct { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--f-display); font-weight: 800; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.result h3 { font-family: var(--f-display); font-size: 1.4rem; margin: 0 0 4px; letter-spacing: -.01em; }
+.result .breakdown { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 12px; }
+.result .breakdown span { font-size: .82rem; font-weight: 700; padding: 4px 9px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.b-good { background: var(--good-bg); color: var(--good); }
+.b-bad { background: var(--bad-bg); color: var(--bad); }
+.b-warn { background: var(--warn-bg); color: var(--warn); }
+.result .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.footnote { color: var(--muted); font-size: .85rem; margin-top: 22px; max-width: 75ch; }
+
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; width: 100%; height: 100%; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes settle { 0% { transform: scale(.97); } 60% { transform: scale(1.015); } 100% { transform: scale(1); } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+@keyframes breathe { 50% { background: var(--accent-soft); } }
+.qbar, .sample-note { animation: rise .4s var(--ease) both; }
+
+/* ---------- narrow screens ---------- */
+@media (max-width: 980px) {
+  .quiz-layout.drag { grid-template-columns: minmax(0, 1fr); }
+  .quiz-layout.drag .bank {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 20; max-height: 42vh; border-radius: 16px 16px 0 0; border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+    box-shadow: 0 -8px 30px rgba(0,0,0,.18); transition: transform .3s var(--ease);
+  }
+  .quiz-layout.drag .bank.collapsed { transform: translateY(calc(100% - 58px - env(safe-area-inset-bottom, 0px))); }
+  .quiz-layout.drag .bank-toggle { display: inline-flex; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; font-size: .78rem; font-weight: 700; padding: 3px 9px; }
+  .quiz-layout.drag { padding-bottom: 44vh; }
+}
+@media (max-width: 760px) {
+  .chart-head { display: none; }
+  .era { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .era > .c { border-left: 0; }
+  .era > .c.col { grid-column: 1 / -1; border-top: 1px solid var(--line); }
+  .era > .c.dates { border-left: 1px solid var(--line); }
+  .era .c-label { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .result { grid-template-columns: 1fr; justify-items: start; }
+  .qbar h2 { font-size: 1.05rem; }
+  .qbar h2 small { display: none; }
+  .qbar .btn { padding: 8px 12px; font-size: .88rem; }
+  .qbar { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; transition-duration: .001ms !important; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>Course Chart Drill</div>
+    <div class="top-meta" id="topMeta"></div>
+  </header>
+
+  <!-- ============ SETUP ============ -->
+  <section id="setup">
+    <div class="hero">
+      <h1>Fill in the <mark>course chart</mark> from memory.</h1>
+      <p>Pick your class and how many periods your quiz covers. Those rows go blank; the rest of the chart stays filled in so you can see where everything fits.</p>
+    </div>
+
+    <div class="setup">
+      <div class="panel" style="--i:0">
+        <div class="panel-h"><h2><span class="step">1</span>Class</h2></div>
+        <div class="courses" id="courses"></div>
+      </div>
+
+      <div class="panel" style="--i:1">
+        <div class="panel-h"><h2><span class="step">2</span>How many rows is your quiz on?</h2><span class="hint">Tap periods below to pick a custom set</span></div>
+        <div class="rows-ctl">
+          <div class="stepper">
+            <button type="button" id="rowsMinus" aria-label="Fewer rows">−</button>
+            <output id="rowsOut" aria-live="polite">3</output>
+            <button type="button" id="rowsPlus" aria-label="More rows">+</button>
+          </div>
+          <input type="range" id="rowsRange" min="1" max="9" value="3" aria-label="Number of rows on the quiz">
+          <div class="rows-label" id="rowsLabel"></div>
+        </div>
+        <div class="eras" id="eraChips"></div>
+      </div>
+
+      <div class="panel" style="--i:2">
+        <div class="panel-h"><h2><span class="step">3</span>How do you want to answer?</h2></div>
+        <div class="opts-row">
+          <div>
+            <p class="sublabel">Answer style</p>
+            <div class="seg" id="modeSeg">
+              <button type="button" class="opt" data-mode="type"><b>Type it</b><span>Write every term yourself. Closest to the real quiz.</span></button>
+              <button type="button" class="opt" data-mode="drag"><b>Drag &amp; drop</b><span>Place terms from a word bank. Drag, or tap a term then tap a blank.</span></button>
+            </div>
+          </div>
+          <div>
+            <p class="sublabel">Grading</p>
+            <div class="seg" id="gradeSeg">
+              <button type="button" class="opt" data-grade="strict"><b>Strict</b><span>Punctuation, quotes, dashes and order within a box must match the chart. Capitals don’t matter.</span></button>
+              <button type="button" class="opt" data-grade="lenient"><b>Forgiving</b><span>Ignores punctuation and spacing, and accepts terms in either order within a box.</span></button>
+            </div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="metaToggle" checked> Blank out the names and dates of quiz rows too</label>
+        </div>
+      </div>
+
+      <div class="go-row">
+        <button type="button" class="btn btn-primary btn-big" id="startBtn">Start quiz →</button>
+        <button type="button" class="btn btn-ghost" id="studyBtn">Study the full chart</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section id="quiz" hidden>
+    <div class="qbar">
+      <h2 id="qTitle">Quiz</h2>
+      <div class="btns" id="qButtons"></div>
+      <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+    </div>
+    <div id="resultSlot"></div>
+    <div id="sampleSlot"></div>
+    <div class="quiz-layout" id="quizLayout">
+      <div class="chart" id="chart"></div>
+    </div>
+    <p class="footnote" id="footnote"></p>
+  </section>
+</div>
+<canvas id="confetti" hidden></canvas>
+
+<script>
+(function () {
+"use strict";
+
+/* ================= DATA =================
+   Terms are written exactly as they appear on the chart (curly quotes, en dashes).
+   A term can be a string, or { t, alias: [...], i: true } where alias = extra answers
+   accepted in Forgiving mode and i = shown in italics. */
+const COURSES = {
+  apush: {
+    short: "APUSH",
+    full: "AP U.S. History",
+    blurb: "9 periods · 1491 to the present",
+    source: "From the APUSH Course Chart 2026–2027",
+    sample: false,
+    eras: [
+      { name: "Atlantic World", dates: "1491-1607",
+        b: ["“First Nations”", "Spanish Colonization"],
+        m: ["Encomienda", "Oath of Supremacy"],
+        e: ["Columbian Exchange", "Pueblo Revolt"] },
+      { name: "Colonial", dates: "1607-1754",
+        b: ["Jamestown", "Massachusetts Bay"],
+        m: ["Bacon’s Rebellion", "Salutary neglect"],
+        e: ["Enlightenment", { t: "1st Great Awakening", alias: ["First Great Awakening"] }] },
+      { name: "Revolution?", dates: "1754-1800",
+        b: ["French and Indian War", "Parliamentary Acts"],
+        m: ["Declaration of Independence", "Articles of Confederation"],
+        e: ["Constitution", "Hamilton v Jefferson"] },
+      { name: "Market Revolution", dates: "1800-1848",
+        b: ["Clay’s American System", { t: "MO Compromise of 1820", alias: ["Missouri Compromise of 1820"] }],
+        m: ["“Universal” Suffrage", { t: "2nd Great Awakening", alias: ["Second Great Awakening"] }],
+        e: ["Antebellum Reforms", "“King Cotton”"] },
+      { name: "Sectional Tension", dates: "1844-1877",
+        b: ["Mexican American War", "Compromise of 1850"],
+        m: ["Bleeding Kansas", "Election of 1860"],
+        e: ["Reconstruction – 13,14,15", "Black Codes"] },
+      { name: "Gilded Age", dates: "1865-1898",
+        b: ["Trans-Continental Railroad", "Homestead Act"],
+        m: ["“Robber Barons”", "Great Railroad Strike of 1877"],
+        e: ["Populist Party", { t: "Plessy v Ferguson", i: true }] },
+      { name: "American Empire", dates: "1890-1945",
+        b: ["Turner’s Frontier Thesis", "Spanish-American War", "Progressives – 16, 17, 18, 19"],
+        m: [{ t: "World War I", alias: ["World War 1", "WWI", "WW1"] }, "“Jazz Age”", "Neutrality Acts"],
+        e: ["Great Depression", "New Deal", { t: "World War II", alias: ["World War 2", "WWII", "WW2"] }] },
+      { name: "Post-War America", dates: "1945-1980",
+        b: ["Containment", "Conformity"],
+        m: ["Vietnam War", "Civil Rights"],
+        e: ["Nixon", "Stagflation"] },
+      { name: "New World Order", dates: { t: "1980 to the present", alias: ["1980-present", "1980 to present"] },
+        b: ["Reaganomics", "Fall of the Berlin Wall"],
+        m: ["Sun Belt", "NAFTA"],
+        e: ["9-11", "War on Terror"] }
+    ]
+  },
+  world: {
+    short: "AP World",
+    full: "AP World History: Modern",
+    blurb: "9 units · c. 1200 to the present",
+    source: "Sample chart built on the College Board’s nine AP World units. It is not from a teacher; swap in your class’s own chart if it differs.",
+    sample: true,
+    eras: [
+      { name: "The Global Tapestry", dates: "1200-1450",
+        b: ["Song Dynasty", "Abbasid Caliphate"],
+        m: ["Delhi Sultanate", "Mali Empire"],
+        e: [{ t: "Aztec Empire", alias: ["Mexica", "Aztecs"] }, { t: "Inca Empire", alias: ["Inca"] }] },
+      { name: "Networks of Exchange", dates: "1200-1450",
+        b: ["Mongol Empire", "Silk Roads"],
+        m: ["Mansa Musa", "Ibn Battuta"],
+        e: ["Black Death", { t: "Zheng He", alias: ["Zheng He’s voyages"] }] },
+      { name: "Land-Based Empires", dates: "1450-1750",
+        b: ["Ottoman Empire", "Safavid Empire"],
+        m: ["Protestant Reformation", "Mughal Empire"],
+        e: ["Qing Dynasty", "Absolutism"] },
+      { name: "Transoceanic Interconnections", dates: "1450-1750",
+        b: ["Columbian Exchange", "Treaty of Tordesillas"],
+        m: ["Manila Galleons", { t: "Mita System", alias: ["Mit’a System", "Mita"] }],
+        e: ["Joint-Stock Companies", { t: "Atlantic Slave Trade", alias: ["Transatlantic Slave Trade"] }] },
+      { name: "Revolutions", dates: "1750-1900",
+        b: ["Enlightenment", "Industrial Revolution"],
+        m: ["French Revolution", "Haitian Revolution"],
+        e: ["Latin American Revolutions", "Meiji Restoration"] },
+      { name: "Consequences of Industrialization", dates: "1750-1900",
+        b: ["Opium Wars", { t: "Sepoy Rebellion", alias: ["Sepoy Mutiny", "Indian Rebellion of 1857"] }],
+        m: ["Suez Canal", "Berlin Conference"],
+        e: ["Ghost Dance", "Boxer Rebellion"] },
+      { name: "Global Conflict", dates: "1900-present",
+        b: ["Mexican Revolution", { t: "World War I", alias: ["World War 1", "WWI", "WW1"] }],
+        m: ["Treaty of Versailles", "Great Depression"],
+        e: [{ t: "World War II", alias: ["World War 2", "WWII", "WW2"] }, "Holocaust"] },
+      { name: "Cold War and Decolonization", dates: "1900-present",
+        b: ["Partition of India", "Truman Doctrine"],
+        m: ["Non-Aligned Movement", "Cuban Missile Crisis"],
+        e: ["Fall of the Berlin Wall", "End of Apartheid"] },
+      { name: "Globalization", dates: "1900-present",
+        b: [{ t: "Universal Declaration of Human Rights", alias: ["UDHR"] }, "Green Revolution"],
+        m: ["Economic Liberalization", { t: "HIV/AIDS", alias: ["AIDS"] }],
+        e: [{ t: "World Trade Organization", alias: ["WTO"] }, "Arab Spring"] }
+    ]
+  }
+};
+const COLS = [["b", "Beginning"], ["m", "Middle"], ["e", "End"]];
+
+/* ================= HELPERS ================= */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const T = (x) => (typeof x === "string" ? { t: x } : x);
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function display(term) {
+  let h = esc(term.t).replace(/\b(\d+)(st|nd|rd|th)\b/g, "$1<sup>$2</sup>");
+  return term.i ? "<em>" + h + "</em>" : h;
+}
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+// Strict: punctuation must be there, but straight vs curly quotes and -/–/— count as the same,
+// spacing around dashes/commas is ignored, and capital letters don't matter.
+function normStrict(s) {
+  return s.normalize("NFKC")
+    .replace(/[“”„‟″"]/g, '"').replace(/[‘’‚‛′`´']/g, "'")
+    .replace(/[‐‑‒–—―−]/g, "-")
+    .replace(/\s*-\s*/g, "-").replace(/\s*,\s*/g, ",")
+    .replace(/\s+/g, " ").trim().toLowerCase();
+}
+// Forgiving: letters and digits only, plus a few common spellings.
+function normLoose(s) {
+  return s.normalize("NFKC").toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/\b(versus|vs)\b\.?/g, " v ")
+    .replace(/\bfirst\b/g, "1st").replace(/\bsecond\b/g, "2nd")
+    .replace(/[^a-z0-9]/g, "");
+}
+function matchLevel(value, term) {
+  if (!value || !value.trim()) return null;
+  if (normStrict(value) === normStrict(term.t)) return "exact";
+  const lv = normLoose(value);
+  if (!lv) return null;
+  if (lv === normLoose(term.t)) return "loose";
+  if ((term.alias || []).some((a) => normLoose(a) === lv)) return "loose";
+  return null;
+}
+
+/* ================= SETTINGS ================= */
+const S = { course: "apush", count: 3, custom: null, mode: "type", grade: "strict", meta: true };
+try {
+  const saved = JSON.parse(localStorage.getItem("ccd-settings") || "null");
+  if (saved) Object.assign(S, saved, { custom: saved.custom ? saved.custom : null });
+} catch (e) {}
+function save() {
+  try { localStorage.setItem("ccd-settings", JSON.stringify(S)); } catch (e) {}
+}
+function eraCount() { return COURSES[S.course].eras.length; }
+function selectedEras() {
+  if (S.custom && S.custom.length) return new Set(S.custom);
+  return new Set(Array.from({ length: S.count }, (_, i) => i));
+}
+
+/* ================= SETUP UI ================= */
+function renderCourses() {
+  $("#courses").innerHTML = Object.entries(COURSES).map(([key, c]) => `
+    <button type="button" class="course" data-course="${key}" aria-pressed="${S.course === key}">
+      <span class="check" aria-hidden="true">✓</span>
+      <span class="c-name">${c.short}</span>
+      <span class="c-full">${c.full}</span>
+      <span class="c-sub">${c.blurb}</span>
+      <span class="tag ${c.sample ? "sample" : ""}">${c.sample ? "Sample chart" : "Your class chart"}</span>
+    </button>`).join("");
+}
+function renderRows() {
+  const n = eraCount();
+  const sel = selectedEras();
+  const eras = COURSES[S.course].eras;
+  $("#rowsRange").max = n;
+  S.count = Math.min(Math.max(1, S.count), n);
+  const shown = S.custom ? sel.size : S.count;
+  $("#rowsRange").value = shown;
+  $("#rowsOut").textContent = shown;
+  const idx = [...sel].sort((a, b) => a - b);
+  let label;
+  if (S.custom) {
+    label = `Custom set: <b>${idx.map((i) => esc(eras[i].name)).join(", ")}</b>`;
+  } else if (shown === 1) {
+    label = `Row 1: <b>${esc(eras[0].name)}</b>`;
+  } else {
+    label = `Rows 1–${shown}: <b>${esc(eras[0].name)}</b> through <b>${esc(eras[shown - 1].name)}</b>`;
+  }
+  $("#rowsLabel").innerHTML = label;
+  $("#eraChips").innerHTML = eras.map((e, i) => `
+    <button type="button" class="era-chip" data-era="${i}" aria-pressed="${sel.has(i)}">
+      <span class="n">${i + 1}</span><span>${esc(e.name)}</span><span class="d">${esc(T(e.dates).t)}</span>
+    </button>`).join("");
+}
+function renderOpts() {
+  $$("#modeSeg .opt").forEach((b) => b.setAttribute("aria-pressed", b.dataset.mode === S.mode));
+  $$("#gradeSeg .opt").forEach((b) => b.setAttribute("aria-pressed", b.dataset.grade === S.grade));
+  $("#metaToggle").checked = S.meta;
+}
+function renderSetup() { renderCourses(); renderRows(); renderOpts(); renderTopMeta(); }
+
+$("#courses").addEventListener("click", (e) => {
+  const b = e.target.closest(".course"); if (!b) return;
+  if (S.course !== b.dataset.course) { S.course = b.dataset.course; S.custom = null; }
+  save(); renderSetup();
+});
+function setCount(n) { S.custom = null; S.count = Math.min(Math.max(1, n), eraCount()); save(); renderRows(); }
+$("#rowsMinus").addEventListener("click", () => setCount((S.custom ? S.custom.length : S.count) - 1));
+$("#rowsPlus").addEventListener("click", () => setCount((S.custom ? S.custom.length : S.count) + 1));
+$("#rowsRange").addEventListener("input", (e) => setCount(+e.target.value));
+$("#eraChips").addEventListener("click", (e) => {
+  const b = e.target.closest(".era-chip"); if (!b) return;
+  const i = +b.dataset.era;
+  const sel = selectedEras();
+  if (sel.has(i)) { if (sel.size === 1) return; sel.delete(i); } else sel.add(i);
+  const arr = [...sel].sort((a, b) => a - b);
+  // Back to plain "first N" when the set is exactly rows 1..N
+  if (arr.every((v, k) => v === k)) { S.custom = null; S.count = arr.length; } else S.custom = arr;
+  save(); renderRows();
+});
+$("#modeSeg").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; S.mode = b.dataset.mode; save(); renderOpts(); });
+$("#gradeSeg").addEventListener("click", (e) => { const b = e.target.closest(".opt"); if (!b) return; S.grade = b.dataset.grade; save(); renderOpts(); });
+$("#metaToggle").addEventListener("change", (e) => { S.meta = e.target.checked; save(); });
+$("#startBtn").addEventListener("click", () => startQuiz(false));
+$("#studyBtn").addEventListener("click", () => startQuiz(true));
+
+/* ================= QUIZ STATE ================= */
+let Q = null;
+
+function buildQuiz(study) {
+  const course = COURSES[S.course];
+  const sel = study ? new Set() : selectedEras();
+  const cells = [];
+  course.eras.forEach((era, ei) => {
+    const on = sel.has(ei);
+    const add = (kind, group, pos, term) => cells.push({
+      id: cells.length, era: ei, kind, group, pos, term: T(term),
+      blank: on && (kind === "term" || S.meta), value: "", chip: null, status: null, locked: false
+    });
+    add("name", ei + "-name", 0, era.name);
+    add("dates", ei + "-dates", 0, era.dates);
+    COLS.forEach(([k]) => era[k].forEach((t, p) => add("term", ei + "-" + k, p, t)));
+  });
+  const chips = shuffle(cells.filter((c) => c.blank).map((c) => ({ term: c.term, kind: c.kind, at: null })))
+    .map((ch, i) => Object.assign(ch, { id: i }));
+  return { study, sel, cells, chips, checked: false, selChip: null, filter: "all", start: Date.now(), elapsed: 0, timer: null, mode: S.mode, grade: S.grade };
+}
+
+function startQuiz(study) {
+  if (Q && Q.timer) clearInterval(Q.timer);
+  Q = buildQuiz(study);
+  $("#setup").hidden = true;
+  const quiz = $("#quiz");
+  quiz.hidden = false;
+  renderQuiz();
+  window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  if (!study) {
+    Q.timer = setInterval(tick, 1000);
+    const first = $(".blank-input");
+    if (first && matchMedia("(min-width: 761px)").matches) setTimeout(() => first.focus({ preventScroll: true }), 350);
+  }
+}
+function tick() {
+  if (!Q || Q.checked) return;
+  Q.elapsed = Date.now() - Q.start;
+  const t = $("#timer"); if (t) t.textContent = fmtTime(Q.elapsed);
+}
+function fmtTime(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+
+function renderTopMeta() {
+  const m = $("#topMeta");
+  if (!Q || $("#quiz").hidden) { m.innerHTML = ""; return; }
+  m.innerHTML = `<span class="pill">${esc(COURSES[S.course].short)}</span>` +
+    (Q.study ? "" : `<span class="pill">${Q.mode === "drag" ? "Drag & drop" : "Typing"} · ${Q.grade === "strict" ? "Strict" : "Forgiving"}</span><span class="pill timer" id="timer">${fmtTime(Q.elapsed)}</span>`);
+}
+
+function renderQuiz() {
+  const course = COURSES[S.course];
+  const blanks = Q.cells.filter((c) => c.blank).length;
+  const idx = [...Q.sel].sort((a, b) => a - b);
+  $("#qTitle").innerHTML = Q.study
+    ? `${esc(course.short)} course chart<small>Study view · all ${course.eras.length} rows</small>`
+    : `${esc(course.short)} quiz<small>${idx.length} row${idx.length > 1 ? "s" : ""} · ${blanks} blanks</small>`;
+  $("#sampleSlot").innerHTML = course.sample ? `<div class="sample-note">${esc(course.source)}</div>` : "";
+  $("#footnote").textContent = course.sample ? "" : course.source + ". Titles, dates, order and punctuation follow the chart exactly.";
+  $("#resultSlot").innerHTML = "";
+  renderButtons();
+  renderTopMeta();
+
+  const layout = $("#quizLayout");
+  layout.className = "quiz-layout" + (Q.mode === "drag" && !Q.study ? " drag" : "");
+  $("#chart").innerHTML = chartHTML();
+  $$(".bank", layout).forEach((b) => b.remove());
+  if (Q.mode === "drag" && !Q.study) {
+    layout.insertAdjacentHTML("beforeend", `
+      <aside class="bank" id="bank" aria-label="Word bank">
+        <div class="bank-h">
+          <h3>Word bank <span id="bankCount"></span><button type="button" class="bank-toggle" id="bankToggle">Hide</button></h3>
+          <div class="tabs" id="bankTabs"></div>
+          <p class="bank-help">Drag a term onto a blank, or tap a term and then tap a blank. Tap a placed term to send it back.</p>
+        </div>
+        <div class="bank-body" id="bankBody"></div>
+      </aside>`);
+    renderBank();
+    paintAllSlots();
+  }
+  updateProgress();
+}
+
+function chartHTML() {
+  const course = COURSES[S.course];
+  let h = `<div class="chart-head" aria-hidden="true"><div>Name</div><div>Dates</div><div>Beginning</div><div>Middle</div><div>End</div></div>`;
+  course.eras.forEach((era, ei) => {
+    const cells = Q.cells.filter((c) => c.era === ei);
+    const on = Q.sel.has(ei);
+    const nameC = cells.find((c) => c.kind === "name");
+    const dateC = cells.find((c) => c.kind === "dates");
+    h += `<div class="era ${on ? "on-quiz" : (Q.study ? "" : "given-era")}" style="--i:${ei}">
+      <div class="c name"><span class="era-num">${String(ei + 1).padStart(2, "0")}</span>${cellHTML(nameC)}</div>
+      <div class="c dates"><span class="c-label">Dates</span>${cellHTML(dateC)}</div>`;
+    COLS.forEach(([k, label]) => {
+      h += `<div class="c col"><span class="c-label">${label}</span>` +
+        cells.filter((c) => c.group === ei + "-" + k).map(cellHTML).join("") + `</div>`;
+    });
+    h += `</div>`;
+  });
+  return h;
+}
+
+const PH = { name: "Name", dates: "Dates", term: "Term" };
+function cellHTML(c) {
+  if (!c.blank) return `<div class="given">${display(c.term)}</div>`;
+  let inner;
+  if (Q.mode === "drag") {
+    inner = `<button type="button" class="slot" id="slot-${c.id}" data-cell="${c.id}" aria-label="Blank ${PH[c.kind].toLowerCase()}"></button>`;
+  } else {
+    inner = `<input class="blank-input" id="cell-${c.id}" data-cell="${c.id}" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="${PH[c.kind]}" aria-label="${PH[c.kind]} for row ${c.era + 1}">`;
+  }
+  return `<div class="cell" id="wrap-${c.id}">${inner}</div>`;
+}
+
+function renderButtons() {
+  const b = $("#qButtons");
+  if (Q.study) {
+    b.innerHTML = `<button type="button" class="btn btn-ghost" data-act="setup">← Setup</button><button type="button" class="btn btn-primary" data-act="quizme">Quiz me on these</button>`;
+  } else if (!Q.checked) {
+    b.innerHTML = `<button type="button" class="btn btn-ghost" data-act="setup">← Setup</button><button type="button" class="btn btn-ghost" data-act="clear">Clear</button><button type="button" class="btn btn-primary" data-act="check">Check answers</button>`;
+  } else {
+    b.innerHTML = `<button type="button" class="btn btn-ghost" data-act="setup">← Setup</button><button type="button" class="btn btn-ghost" data-act="again">Start over</button>`;
+  }
+}
+
+/* ================= TYPE MODE ================= */
+document.addEventListener("input", (e) => {
+  const el = e.target.closest(".blank-input"); if (!el || !Q) return;
+  Q.cells[+el.dataset.cell].value = el.value;
+  updateProgress();
+});
+document.addEventListener("keydown", (e) => {
+  const el = e.target.closest && e.target.closest(".blank-input");
+  if (!el || e.key !== "Enter") return;
+  e.preventDefault();
+  const all = $$(".blank-input:not([readonly])");
+  const i = all.indexOf(el);
+  if (i > -1 && i < all.length - 1) all[i + 1].focus();
+  else if (!Q.checked) $('[data-act="check"]') && $('[data-act="check"]').focus();
+});
+
+/* ================= DRAG MODE ================= */
+function chipHTML(ch, inSlot, locked) {
+  return `<span class="chip k-${ch.kind}${Q.selChip === ch.id ? " sel" : ""}${locked ? " locked" : ""}" data-chip="${ch.id}" ${inSlot ? "" : 'role="button" tabindex="0" aria-label="' + esc(ch.term.t) + '"'}>${display(ch.term)}</span>`;
+}
+function renderBank() {
+  const body = $("#bankBody"); if (!body) return;
+  const free = Q.chips.filter((c) => c.at === null);
+  const counts = { all: free.length, name: 0, dates: 0, term: 0 };
+  free.forEach((c) => counts[c.kind]++);
+  const tabs = [["all", "All"], ["term", "Terms"], ["name", "Names"], ["dates", "Dates"]].filter(([k]) => k === "all" || Q.chips.some((c) => c.kind === k));
+  if (!tabs.some(([k]) => k === Q.filter)) Q.filter = "all";
+  $("#bankTabs").innerHTML = tabs.map(([k, l]) => `<button type="button" class="tab" data-filter="${k}" aria-pressed="${Q.filter === k}">${l} ${counts[k]}</button>`).join("");
+  $("#bankCount").textContent = free.length + " left";
+  const list = free.filter((c) => Q.filter === "all" || c.kind === Q.filter);
+  body.innerHTML = list.length ? list.map((c) => chipHTML(c, false)).join("")
+    : `<div class="bank-empty">${free.length ? "Nothing left in this group." : (Q.checked ? "All placed." : "Every term is placed. Check your answers when you’re ready.")}</div>`;
+}
+function paintSlot(cell) {
+  const slot = $("#slot-" + cell.id); if (!slot) return;
+  slot.classList.toggle("filled", cell.chip !== null);
+  slot.classList.toggle("locked", cell.locked);
+  slot.innerHTML = cell.chip !== null ? chipHTML(Q.chips[cell.chip], true, cell.locked) : `<span class="ph">${PH[cell.kind]}</span>`;
+}
+function paintAllSlots() { Q.cells.filter((c) => c.blank).forEach(paintSlot); }
+
+function placeChip(chipId, cellId) {
+  const chip = Q.chips[chipId], cell = Q.cells[cellId];
+  if (!cell || cell.locked || !cell.blank) return;
+  const from = chip.at;
+  if (from === cellId) return;
+  const displaced = cell.chip;
+  if (from !== null) Q.cells[from].chip = null;
+  if (displaced !== null) {
+    if (from !== null) { Q.cells[from].chip = displaced; Q.chips[displaced].at = from; }
+    else Q.chips[displaced].at = null;
+  }
+  cell.chip = chipId; chip.at = cellId;
+  Q.selChip = null;
+  paintSlot(cell); if (from !== null) paintSlot(Q.cells[from]);
+  const placed = $("#slot-" + cellId + " .chip"); if (placed) placed.classList.add("in");
+  renderBank(); updateProgress(); setArmed();
+}
+function returnChip(chipId) {
+  const chip = Q.chips[chipId];
+  if (chip.at === null) return;
+  const cell = Q.cells[chip.at];
+  if (cell.locked) return;
+  cell.chip = null; chip.at = null; Q.selChip = null;
+  paintSlot(cell); renderBank(); updateProgress(); setArmed();
+  const back = $(`#bankBody [data-chip="${chipId}"]`); if (back) back.classList.add("in");
+}
+function selectChip(id) {
+  Q.selChip = Q.selChip === id ? null : id;
+  $$("#bankBody .chip").forEach((el) => el.classList.toggle("sel", +el.dataset.chip === Q.selChip));
+  setArmed();
+}
+function setArmed() { $("#chart").classList.toggle("armed", Q.selChip !== null); }
+
+// Click / keyboard: tap-to-place
+let justDragged = false;
+document.addEventListener("click", (e) => {
+  if (!Q || Q.mode !== "drag" || Q.study) return;
+  if (justDragged) { justDragged = false; return; }
+  const tab = e.target.closest(".tab");
+  if (tab) { Q.filter = tab.dataset.filter; renderBank(); return; }
+  if (e.target.closest("#bankToggle")) {
+    const bank = $("#bank"); bank.classList.toggle("collapsed");
+    $("#bankToggle").textContent = bank.classList.contains("collapsed") ? "Show" : "Hide"; return;
+  }
+  if (Q.checked && !e.target.closest(".slot:not(.locked)") && !e.target.closest("#bankBody")) return;
+  const chipEl = e.target.closest(".chip");
+  const slotEl = e.target.closest(".slot");
+  if (chipEl && !slotEl) { selectChip(+chipEl.dataset.chip); return; }
+  if (slotEl) {
+    const cell = Q.cells[+slotEl.dataset.cell];
+    if (cell.locked) return;
+    if (Q.selChip !== null) placeChip(Q.selChip, cell.id);
+    else if (cell.chip !== null) returnChip(cell.chip);
+    else { const bank = $("#bank"); if (bank) { bank.classList.remove("collapsed"); flash(bank); } }
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (!Q || Q.mode !== "drag") return;
+  const chipEl = e.target.closest && e.target.closest("#bankBody .chip");
+  if (chipEl && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selectChip(+chipEl.dataset.chip); }
+  if (e.key === "Escape" && Q.selChip !== null) selectChip(Q.selChip);
+});
+function flash(el) { el.animate && !reduceMotion && el.animate([{ transform: "translateY(0)" }, { transform: "translateY(-6px)" }, { transform: "translateY(0)" }], { duration: 300, easing: "ease-out" }); }
+
+// Pointer drag (mouse: drag after a few px; touch: press and hold briefly, then drag)
+const D = { id: null, el: null, ghost: null, sx: 0, sy: 0, ox: 0, oy: 0, active: false, hold: null, over: null, x: 0, y: 0, raf: 0, type: "" };
+document.addEventListener("pointerdown", (e) => {
+  if (!Q || Q.mode !== "drag" || Q.study || Q.checked || e.button > 0) return;
+  const chipEl = e.target.closest(".chip");
+  if (!chipEl || chipEl.classList.contains("locked")) return;
+  D.id = +chipEl.dataset.chip; D.el = chipEl; D.sx = e.clientX; D.sy = e.clientY; D.x = e.clientX; D.y = e.clientY; D.type = e.pointerType;
+  const r = chipEl.getBoundingClientRect(); D.ox = e.clientX - r.left; D.oy = e.clientY - r.top;
+  if (e.pointerType === "touch") D.hold = setTimeout(() => beginDrag(), 230);
+  window.addEventListener("pointermove", onMove, { passive: false });
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onCancel);
+});
+function beginDrag() {
+  if (D.id === null || D.active) return;
+  D.active = true;
+  const g = D.el.cloneNode(true);
+  g.classList.add("ghost"); g.classList.remove("sel", "in");
+  g.style.width = D.el.getBoundingClientRect().width + "px";
+  document.body.appendChild(g);
+  D.ghost = g;
+  D.el.classList.add("lifting");
+  moveGhost();
+  if (navigator.vibrate && D.type === "touch") try { navigator.vibrate(10); } catch (e) {}
+  D.raf = requestAnimationFrame(autoScroll);
+}
+function moveGhost() { if (D.ghost) D.ghost.style.transform = `translate(${D.x - D.ox}px, ${D.y - D.oy}px) scale(1.05)`; }
+function onMove(e) {
+  D.x = e.clientX; D.y = e.clientY;
+  const dist = Math.hypot(D.x - D.sx, D.y - D.sy);
+  if (!D.active) {
+    if (D.type === "touch") { if (dist > 8) cleanup(); return; }
+    if (dist > 5) beginDrag(); else return;
+  }
+  e.preventDefault();
+  moveGhost();
+  const under = document.elementFromPoint(D.x, D.y);
+  const slot = under && under.closest(".slot:not(.locked)");
+  const bank = under && under.closest("#bankBody");
+  if (D.over && D.over !== slot && D.over !== bank) D.over.classList.remove("over");
+  D.over = slot || bank || null;
+  if (D.over) D.over.classList.add("over");
+}
+function onUp() {
+  if (D.active) {
+    justDragged = true; setTimeout(() => { justDragged = false; }, 0);
+    if (D.over && D.over.classList.contains("slot")) placeChip(D.id, +D.over.dataset.cell);
+    else if (D.over && D.over.id === "bankBody") returnChip(D.id);
+  }
+  cleanup();
+}
+function onCancel() { cleanup(); }
+function cleanup() {
+  clearTimeout(D.hold); cancelAnimationFrame(D.raf);
+  if (D.ghost) D.ghost.remove();
+  if (D.el) D.el.classList.remove("lifting");
+  if (D.over) D.over.classList.remove("over");
+  Object.assign(D, { id: null, el: null, ghost: null, active: false, over: null, hold: null });
+  window.removeEventListener("pointermove", onMove);
+  window.removeEventListener("pointerup", onUp);
+  window.removeEventListener("pointercancel", onCancel);
+}
+function autoScroll() {
+  if (!D.active) return;
+  const bank = $("#bank");
+  const sheet = bank && getComputedStyle(bank).position === "fixed";
+  const bottom = sheet ? bank.getBoundingClientRect().top : innerHeight;
+  const zone = 70;
+  let dy = 0;
+  if (D.y < zone + 40) dy = -Math.ceil((zone + 40 - D.y) / 5);
+  else if (D.y > bottom - zone && D.y < bottom) dy = Math.ceil((D.y - (bottom - zone)) / 5);
+  if (dy) window.scrollBy(0, dy);
+  D.raf = requestAnimationFrame(autoScroll);
+}
+document.addEventListener("touchmove", (e) => { if (D.active) e.preventDefault(); }, { passive: false });
+document.addEventListener("contextmenu", (e) => { if (e.target.closest && e.target.closest(".chip")) e.preventDefault(); });
+
+/* ================= PROGRESS & CHECKING ================= */
+function cellValue(c) {
+  if (Q.mode === "drag") return c.chip !== null ? Q.chips[c.chip].term.t : "";
+  return c.value;
+}
+function updateProgress() {
+  const blanks = Q.cells.filter((c) => c.blank);
+  const filled = blanks.filter((c) => cellValue(c).trim()).length;
+  $("#progressBar").style.width = (blanks.length ? (Q.checked ? 100 : filled / blanks.length * 100) : 100) + "%";
+  const chk = $('[data-act="check"]');
+  if (chk) chk.textContent = filled === blanks.length ? "Check answers" : `Check (${blanks.length - filled} empty)`;
+}
+
+function grade() {
+  const groups = {};
+  Q.cells.forEach((c) => { (groups[c.group] = groups[c.group] || []).push(c); });
+  Object.values(groups).forEach((cells) => {
+    const blanks = cells.filter((c) => c.blank && !c.locked);
+    blanks.forEach((c) => { c.status = null; c.note = ""; c.lvl = matchLevel(cellValue(c), c.term); });
+    if (Q.grade === "lenient") {
+      blanks.forEach((c) => { if (c.lvl) c.status = "good"; });
+      // Accept the right terms in a different order within the same box
+      const open = blanks.filter((c) => !c.status);
+      const used = new Set();
+      open.forEach((c) => {
+        const hit = open.find((o) => o !== c && !used.has(o.id) && matchLevel(cellValue(c), o.term));
+        if (hit) { used.add(hit.id); c.status = "good"; c.note = "order"; }
+      });
+      blanks.forEach((c) => { if (!c.status) c.status = "bad"; });
+    } else {
+      blanks.forEach((c) => {
+        if (c.lvl === "exact") c.status = "good";
+        else if (c.lvl === "loose") { c.status = "close"; c.note = "punct"; }
+        else {
+          const other = blanks.find((o) => o !== c && matchLevel(cellValue(c), o.term));
+          c.status = "bad"; c.note = other ? "spot" : "";
+        }
+      });
+    }
+  });
+}
+
+function check() {
+  Q.checked = true;
+  Q.elapsed = Date.now() - Q.start;
+  Q.selChip = null; setArmed();
+  grade();
+  const blanks = Q.cells.filter((c) => c.blank);
+  let order = 0;
+  blanks.forEach((c) => {
+    const wrap = $("#wrap-" + c.id);
+    wrap.classList.remove("good", "bad", "close");
+    $$(".mark, .fix", wrap).forEach((n) => n.remove());
+    wrap.classList.add(c.status);
+    const d = Math.min(order++ * 18, 1400);
+    wrap.style.setProperty("--d", d + "ms");
+    wrap.insertAdjacentHTML("beforeend", `<span class="mark" aria-hidden="true">${c.status === "good" ? "✓" : c.status === "close" ? "!" : "✕"}</span>`);
+    if (c.status !== "good" || c.note === "order") {
+      let why = "";
+      if (c.note === "punct") why = "Right idea. Fix the punctuation or spelling to match the chart.";
+      else if (c.note === "spot") why = "That term belongs on the other line of this box.";
+      else if (c.note === "order") why = "Accepted. The chart lists it in the other spot.";
+      else if (!cellValue(c).trim()) why = "Left blank.";
+      const answer = c.note === "order" ? "" : `→ <b>${display(c.term)}</b>`;
+      wrap.insertAdjacentHTML("beforeend", `<div class="fix">${answer}${why ? `<span class="why">${why}</span>` : ""}</div>`);
+    }
+    if (c.status === "good") c.locked = true;
+    const input = $("#cell-" + c.id); if (input) input.readOnly = true;
+  });
+  if (Q.mode === "drag") { paintAllSlots(); $$(".slot").forEach((s) => s.classList.add("locked")); renderBank(); }
+  renderButtons(); updateProgress(); renderTopMeta(); showResult(blanks);
+}
+
+function showResult(blanks) {
+  const good = blanks.filter((c) => c.status === "good").length;
+  const close = blanks.filter((c) => c.status === "close").length;
+  const bad = blanks.length - good - close;
+  const pct = blanks.length ? Math.round(good / blanks.length * 100) : 100;
+  const head = pct === 100 ? "Perfect chart." : pct >= 90 ? "Almost there." : pct >= 70 ? "Solid. Clean up the misses." : "Keep drilling.";
+  const C = 2 * Math.PI * 44;
+  $("#resultSlot").innerHTML = `
+    <div class="result" role="status">
+      <div class="ring"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="44" fill="none" stroke-width="9"/><circle class="val" id="ringVal" cx="50" cy="50" r="44" fill="none" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg><div class="pct" id="pctNum">0%</div></div>
+      <div>
+        <h3>${head}</h3>
+        <div>${good} of ${blanks.length} correct in ${fmtTime(Q.elapsed)}</div>
+        <div class="breakdown">
+          <span class="b-good">${good} correct</span>
+          ${close ? `<span class="b-warn">${close} punctuation or spelling</span>` : ""}
+          ${bad ? `<span class="b-bad">${bad} missed</span>` : ""}
+        </div>
+        <div class="btns">
+          ${good < blanks.length ? `<button type="button" class="btn btn-primary" data-act="retry">Retry the ${blanks.length - good} I missed</button>` : ""}
+          <button type="button" class="btn btn-ghost" data-act="again">Start over</button>
+          <button type="button" class="btn btn-ghost" data-act="setup">Change setup</button>
+        </div>
+      </div>
+    </div>`;
+  const ring = $("#ringVal");
+  requestAnimationFrame(() => requestAnimationFrame(() => { ring.style.strokeDashoffset = C * (1 - pct / 100); }));
+  if (pct < 60) ring.style.stroke = "var(--bad)"; else if (pct < 90) ring.style.stroke = "var(--warn)";
+  countUp($("#pctNum"), pct);
+  window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  if (pct === 100) confetti();
+  try {
+    const key = "ccd-best-" + S.course;
+    const best = +(localStorage.getItem(key) || 0);
+    if (pct > best) localStorage.setItem(key, pct);
+  } catch (e) {}
+}
+function countUp(el, to) {
+  if (reduceMotion) { el.textContent = to + "%"; return; }
+  const t0 = performance.now(), dur = 1100;
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(to * e) + "%";
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function retryMissed() {
+  Q.checked = false;
+  Q.start = Date.now() - Q.elapsed;
+  Q.cells.filter((c) => c.blank).forEach((c) => {
+    const wrap = $("#wrap-" + c.id);
+    $$(".mark, .fix", wrap).forEach((n) => n.remove());
+    wrap.classList.remove("bad", "close");
+    if (c.locked) return;
+    c.status = null;
+    if (Q.mode === "drag") { if (c.chip !== null) { Q.chips[c.chip].at = null; c.chip = null; } }
+    else { c.value = ""; const i = $("#cell-" + c.id); i.value = ""; i.readOnly = false; }
+  });
+  if (Q.mode === "drag") { $$(".slot").forEach((s) => s.classList.remove("locked")); paintAllSlots(); renderBank(); }
+  $("#resultSlot").innerHTML = "";
+  renderButtons(); updateProgress(); renderTopMeta();
+  const first = $(".blank-input:not([readonly])") || $(".slot:not(.locked)");
+  if (first) { first.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" }); if (first.tagName === "INPUT") setTimeout(() => first.focus({ preventScroll: true }), 300); }
+}
+function clearAll() {
+  Q.cells.filter((c) => c.blank).forEach((c) => {
+    if (Q.mode === "drag") { if (c.chip !== null) { Q.chips[c.chip].at = null; c.chip = null; } }
+    else { c.value = ""; $("#cell-" + c.id).value = ""; }
+  });
+  Q.selChip = null;
+  if (Q.mode === "drag") { paintAllSlots(); renderBank(); setArmed(); }
+  updateProgress();
+}
+
+$("#qButtons").addEventListener("click", onAct);
+$("#resultSlot").addEventListener("click", onAct);
+function onAct(e) {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act;
+  if (act === "check") check();
+  else if (act === "clear") clearAll();
+  else if (act === "retry") retryMissed();
+  else if (act === "again") startQuiz(false);
+  else if (act === "quizme") startQuiz(false);
+  else if (act === "setup") {
+    if (Q && Q.timer) clearInterval(Q.timer);
+    $("#quiz").hidden = true; $("#setup").hidden = false;
+    Q = null; renderSetup(); window.scrollTo({ top: 0 });
+  }
+}
+
+/* ================= CONFETTI ================= */
+function confetti() {
+  if (reduceMotion) return;
+  const cv = $("#confetti"); cv.hidden = false;
+  const ctx = cv.getContext("2d");
+  const dpr = devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; ctx.scale(dpr, dpr);
+  const cs = getComputedStyle(document.documentElement);
+  const colors = ["--accent", "--hi", "--good", "--bad", "--warn"].map((v) => cs.getPropertyValue(v).trim());
+  const P = Array.from({ length: 140 }, () => ({
+    x: innerWidth / 2 + (Math.random() - .5) * 120, y: innerHeight * .25,
+    vx: (Math.random() - .5) * 13, vy: -Math.random() * 11 - 4,
+    w: 6 + Math.random() * 6, h: 8 + Math.random() * 8, r: Math.random() * 6, vr: (Math.random() - .5) * .3,
+    c: colors[Math.floor(Math.random() * colors.length)]
+  }));
+  const t0 = performance.now();
+  (function frame(t) {
+    const k = (t - t0) / 1800;
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    P.forEach((p) => {
+      p.vy += .32; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - k); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    });
+    if (k < 1) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, innerWidth, innerHeight); cv.hidden = true; }
+  })(t0);
+}
+
+renderSetup();
+})();
+</script>
+</body>
+</html>
