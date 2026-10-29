@@ -130,6 +130,9 @@ button { cursor: pointer; }
 .tr.enter-blank .field::before { animation: drawline .5s var(--ease) both; animation-delay: calc(var(--rd, 0ms) + var(--li, 0) * 45ms); transform-origin: left; }
 .tr.enter-print .t { animation: printin .45s var(--ease) both; animation-delay: calc(var(--rd, 0ms) + var(--li, 0) * 45ms); }
 .field:hover::before { opacity: .95; }
+/* Whole chart: every unfinished quiz row is highlighted at once */
+.tr.quiz { transition: background .45s var(--ease) var(--qd, 0ms); }
+#paper:not(.rowmode) .tr.quiz:not(.done-row) { background: color-mix(in srgb, var(--hl) 70%, transparent); }
 .rowmode .tr.quiz:not(.active):not(.done-row):hover .field { opacity: .7; }
 
 .field { position: relative; display: block; transition: opacity .3s; }
@@ -505,7 +508,7 @@ function renderPaper(animate) {
       <div class="tr th"><div>Name</div><div>Dates</div><div>Beginning</div><div>Middle</div><div>End</div></div>`;
   C.eras.forEach((era, ei) => {
     const mine = cells.filter((c) => c.era === ei);
-    h += `<div class="tr${rows.has(ei) ? " quiz" : ""}" data-row="${ei}">
+    h += `<div class="tr${rows.has(ei) ? " quiz" : ""}" data-row="${ei}"${rows.has(ei) ? ` style="--qd:${[...rows].indexOf(ei) * 70}ms"` : ""}>
       <div class="c-name"><span class="lbl">Name</span>${fieldHTML(mine.find((c) => c.kind === "name"))}</div>
       <div class="c-dates"><span class="lbl">Dates</span>${fieldHTML(mine.find((c) => c.kind === "dates"))}</div>`;
     COLS.forEach(([k, label]) => {
@@ -621,6 +624,7 @@ $("#modeSeg").addEventListener("click", (e) => {
   $("#paper").classList.toggle("rowmode", S.mode === "row");
   active = S.mode === "row" ? nextRow(-1) : -1;
   paintRows(); dockLabels(); focusFirst();
+  toast(S.mode === "row" ? "Row by row: one row at a time" : "Whole chart: fill in any blank, in any order");
 });
 $("#exact").addEventListener("change", (e) => { S.exact = e.target.checked; save(); toast(S.exact ? "Exact punctuation on" : "Punctuation and order in a box won’t count"); });
 $("#rowsBtn").addEventListener("click", (e) => {
