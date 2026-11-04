@@ -75,10 +75,12 @@ button { cursor: pointer; }
 .chipbtn .caret { transition: transform .2s var(--ease); }
 .chipbtn[aria-expanded="true"] .caret { transform: rotate(180deg); }
 .switch { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; user-select: none; }
-.switch input { appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; transition: background .2s; margin: 0; }
-.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--paper); transition: transform .25s var(--ease); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
-.switch input:checked { background: var(--pen); }
-.switch input:checked::after { transform: translateX(14px); }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+.switch .sw { flex: none; width: 34px; height: 20px; border-radius: 99px; background: var(--line); position: relative; transition: background .2s; }
+.switch .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .25s var(--ease); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.switch input:checked + .sw { background: var(--pen); }
+.switch input:checked + .sw::after { transform: translateX(14px); }
+.switch input:focus-visible + .sw { outline: 2px solid var(--pen); outline-offset: 2px; }
 
 .rows-wrap { position: relative; }
 .pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: 290px; max-width: calc(100vw - 32px); background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 12px; animation: popin .2s var(--ease) both; transform-origin: top left; }
@@ -165,6 +167,13 @@ button { cursor: pointer; }
 .note { display: block; font-size: .78rem; line-height: 1.2; margin-top: 3px; font-family: var(--f-ui); animation: fadein .3s var(--ease) both; animation-delay: var(--d, 0ms); }
 .field.bad + .note { color: var(--bad); }
 .field.close + .note { color: var(--warn); }
+.note .why { display: block; font-weight: 600; }
+.note .ans { display: block; margin-top: 3px; color: var(--muted); }
+.note .dif { font-family: var(--f-doc); font-size: .92rem; color: var(--ink); }
+.note ins, .note del { display: inline-block; border-radius: 3px; animation: pop .35s var(--ease) both; animation-delay: calc(var(--d, 0ms) + 250ms); }
+.note ins { text-decoration: none; color: var(--ok); font-weight: 700; padding: 0 2px; background: color-mix(in srgb, var(--ok) 16%, transparent); box-shadow: inset 0 -2px 0 var(--ok); }
+.note ins.sp { min-width: .6em; }
+.note del { color: var(--bad); padding: 0 1px; text-decoration: line-through; text-decoration-thickness: 2px; background: color-mix(in srgb, var(--bad) 12%, transparent); }
 
 .themes { margin-top: 34px; padding-top: 26px; border-top: 1px dashed var(--line); }
 .themes h2 { font-size: 1.15rem; margin: 0 0 10px; }
@@ -328,7 +337,7 @@ button { cursor: pointer; }
       <button type="button" data-v="row">Row by row</button>
       <button type="button" data-v="all">Whole chart</button>
     </div>
-    <label class="switch" title="Punctuation, quotes and dashes must match the chart"><input type="checkbox" id="exact"> Exact punctuation</label>
+    <label class="switch" title="Punctuation, quotes and dashes must match the chart"><input type="checkbox" id="exact"><span class="sw" aria-hidden="true"></span>Exact punctuation</label>
     </div>
   </header>
 
@@ -652,7 +661,11 @@ $("#modeSeg").addEventListener("click", (e) => {
   toast(S.mode === "row" ? "Row by row: one row at a time" : "Whole chart: fill in any blank, in any order");
   markDirty();
 });
-$("#exact").addEventListener("change", (e) => { S.exact = e.target.checked; save(); markDirty(); toast(S.exact ? "Exact punctuation on" : "Punctuation and order in a box won’t count"); });
+$("#exact").addEventListener("change", (e) => {
+  S.exact = e.target.checked; save(); markDirty();
+  const n = regrade();
+  toast((S.exact ? "Exact punctuation on" : "Punctuation and order in a box won’t count") + (n ? " · re-checked your answers" : ""));
+});
 $("#rowsBtn").addEventListener("click", (e) => {
   e.stopPropagation();
   const pop = $("#rowsPop"); pop.hidden = !pop.hidden;
@@ -744,10 +757,8 @@ function focusFirst() {
 /* ================= CHECKING ================= */
 function scope() { return cells.filter((c) => c.blank && !locked(c) && (S.mode !== "row" || c.era === active)); }
 
-function check() {
-  if (finished) return;
-  const targets = scope();
-  if (!targets.length) { advance(); return; }
+// Grade these cells in place (state + note). Used by Check and when Exact punctuation changes.
+function gradeTargets(targets) {
   const groups = {};
   targets.forEach((c) => (groups[c.group] = groups[c.group] || []).push(c));
   Object.values(groups).forEach((list) => {
@@ -765,10 +776,17 @@ function check() {
       const other = list.find((o) => o !== c && !taken.has(o.id) && matchLevel(c.value, o.term));
       if (other && !S.exact) { c.state = "ok"; c.match = other.id; taken.add(other.id); }
       else if (other) { c.state = "bad"; c.note = "Right term, other line"; }
-      else if (c.lvl === "loose") { c.state = "close"; c.note = "Check punctuation"; }
+      else if (c.lvl === "loose" || isNear(c.value, c.term)) { c.state = "close"; c.note = explain(c.value, c.term); }
       else c.state = "bad";
     });
   });
+}
+
+function check() {
+  if (finished) return;
+  const targets = scope();
+  if (!targets.length) { advance(); return; }
+  gradeTargets(targets);
   let ok = 0, bad = 0, close = 0, empty = 0, k = 0;
   targets.forEach((c) => {
     if (!c.value.trim()) { empty++; return; }
@@ -786,7 +804,7 @@ function check() {
   });
   const parts = [];
   if (ok) parts.push(`<b class="g">${ok} right</b>`);
-  if (close) parts.push(`<b class="y">${close} punctuation</b>`);
+  if (close) parts.push(`<b class="y">${close} almost</b>`);
   if (bad) parts.push(`<b class="r">${bad} wrong</b>`);
   if (empty) parts.push(`${empty} blank`);
   toast(parts.join(" · "));
@@ -817,6 +835,92 @@ function sweep(ei, delay) {
   tr.classList.remove("sweep"); void tr.offsetWidth;
   tr.style.setProperty("--sd", delay + "ms");
   tr.classList.add("sweep");
+}
+
+/* ================= SMALL MISTAKES ================= */
+// How two characters compare: capitals, quote styles and dash styles don't matter.
+function ckey(ch) {
+  if (/[“”„‟″"]/.test(ch)) return '"';
+  if (/[‘’‚‛′`´']/.test(ch)) return "'";
+  if (/[‐‑‒–—―−-]/.test(ch)) return "-";
+  if (/\s/.test(ch)) return " ";
+  return ch.toLowerCase();
+}
+const isWordChar = (ch) => /[\p{L}\p{N}]/u.test(ch);
+function editDistance(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+// A misspelling small enough to show the answer: about one wrong letter per five
+function isNear(value, term) {
+  const v = normLoose(value), t = normLoose(term.t);
+  if (!v || !t) return false;
+  return editDistance(v, t) <= Math.min(3, Math.max(1, Math.floor(t.length / 5)));
+}
+// Character diff of what was typed (a) against the chart (b): eq / del (typed, not on chart) / ins (on chart, not typed)
+function diffChars(a, b) {
+  const A = [...a.trim().replace(/\s+/g, " ")], B = [...b], n = A.length, m = B.length;
+  const L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    L[i][j] = ckey(A[i]) === ckey(B[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const ops = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (ckey(A[i]) === ckey(B[j])) { ops.push({ t: "eq", ch: B[j] }); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) ops.push({ t: "del", ch: A[i++] });
+    else ops.push({ t: "ins", ch: B[j++] });
+  }
+  while (i < n) ops.push({ t: "del", ch: A[i++] });
+  while (j < m) ops.push({ t: "ins", ch: B[j++] });
+  // spacing around dashes, commas and slashes never counts
+  const near = (k) => [ops[k - 1], ops[k + 1]].some((o) => o && /[-,/]/.test(ckey(o.ch)));
+  return ops.map((o, k) => (o.ch === " " && o.t !== "eq" && near(k) ? (o.t === "ins" ? { t: "eq", ch: " " } : null) : o)).filter(Boolean);
+}
+const MARK = { "'": "apostrophe", '"': "quotation marks", "/": "slash", "?": "question mark", ",": "comma", ".": "period", ":": "colon", ";": "semicolon", "(": "parentheses", ")": "parentheses", "!": "exclamation mark" };
+const markName = (ch) => (ckey(ch) === "-" ? (/[–—]/.test(ch) ? "dash" : "hyphen") : MARK[ckey(ch)] || "“" + ch + "”");
+function listWords(a) { return a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
+// Say what was off, and show the chart's version with the fix marked
+function explain(value, term) {
+  const ops = diffChars(value, term.t);
+  const ins = ops.filter((o) => o.t === "ins").map((o) => o.ch), del = ops.filter((o) => o.t === "del").map((o) => o.ch);
+  const reasons = [];
+  const wordEdits = [...ins, ...del].filter(isWordChar).length;
+  if (wordEdits) reasons.push(normLoose(value) === normLoose(term.t) || matchLevel(value, term) ? "The chart words it differently" : "Spelling");
+  const missing = [...new Set(ins.filter((c) => c !== " " && !isWordChar(c)).map(markName))];
+  const extra = [...new Set(del.filter((c) => c !== " " && !isWordChar(c)).map(markName))];
+  if (missing.length) reasons.push("Missing " + listWords(missing));
+  if (extra.length) reasons.push("Remove the " + listWords(extra));
+  if (!wordEdits && ins.includes(" ")) reasons.push("Missing space");
+  if (!wordEdits && del.includes(" ")) reasons.push("Extra space");
+  // a big rewording reads better as the plain answer than as a sea of marks
+  const shown = wordEdits > Math.max(3, term.t.length * 0.4) ? esc(term.t)
+    : ops.reduce((h, o, k) => {
+        const prev = ops[k - 1], open = !prev || prev.t !== o.t, next = ops[k + 1], close = !next || next.t !== o.t;
+        const ch = o.ch === " " && o.t === "ins" ? "&nbsp;" : esc(o.ch);
+        const tag = o.t === "ins" ? (o.ch === " " ? '<ins class="sp">' : "<ins>") : "<del>";
+        return h + (o.t === "eq" ? ch : (open ? tag : "") + ch + (close ? (o.t === "ins" ? "</ins>" : "</del>") : ""));
+      }, "");
+  return `<span class="why">${reasons.join(" · ") || "Almost"}</span><span class="ans">Chart: <span class="dif">${shown}</span></span>`;
+}
+
+// Re-grade answers that were already checked, e.g. after Exact punctuation is switched
+function regrade() {
+  if (finished) return 0;
+  const list = cells.filter((c) => c.blank && ["ok", "close", "bad"].includes(c.state));
+  if (!list.length) return 0;
+  list.forEach((c) => { c.state = ""; c.match = null; });
+  gradeTargets(list);
+  let k = 0;
+  list.forEach((c) => paintCell(c, Math.min(k++ * 30, 600)));
+  paintRows(); progress(); markDirty();
+  const done = S.mode === "row" ? active !== -1 && rowDone(active) : cells.filter((c) => c.blank).every(locked);
+  if (done) setTimeout(advance, reduceMotion ? 0 : 700);
+  return list.length;
 }
 
 /* ================= REVEAL ================= */
@@ -1098,7 +1202,7 @@ function offerResume() {
 }
 function restore(st) {
   if (!st || !COURSES[st.course]) return;
-  Object.assign(S, { course: st.course, count: st.count || 3, custom: Array.isArray(st.custom) ? st.custom : null, mode: st.mode === "all" ? "all" : "row", exact: st.exact !== false });
+  Object.assign(S, { course: st.course, count: st.count || 3, custom: Array.isArray(st.custom) ? st.custom : null, mode: st.mode === "all" ? "all" : "row" });
   save(); kept = {}; cells = []; build();
   const byKey = {}; cells.forEach((c) => (byKey[c.key] = c));
   (st.cells || []).forEach((x) => {
@@ -1112,6 +1216,7 @@ function restore(st) {
   paintSettings(); renderPaper(true); closeDone();
   cells.forEach((c) => { if (c.state) paintCell(c, 0); });
   paintRows(); progress();
+  regrade(); // saved answers follow the current Exact punctuation setting
   setTimeout(focusFirst, 300);
 }
 
