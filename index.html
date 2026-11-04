@@ -81,6 +81,9 @@ button { cursor: pointer; }
 .switch input:checked + .sw { background: var(--pen); }
 .switch input:checked + .sw::after { transform: translateX(14px); }
 .switch input:focus-visible + .sw { outline: 2px solid var(--pen); outline-offset: 2px; }
+.switch.sub { overflow: hidden; white-space: nowrap; max-width: 220px; transition: max-width .35s var(--ease), opacity .3s var(--ease), transform .35s var(--ease), margin .35s var(--ease); }
+.switch.sub.gone { max-width: 0; opacity: 0; transform: translateX(-10px); margin-left: -14px; pointer-events: none; }
+.field.ok + .note { color: var(--ok); }
 
 .rows-wrap { position: relative; }
 .pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: 290px; max-width: calc(100vw - 32px); background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 12px; animation: popin .2s var(--ease) both; transform-origin: top left; }
@@ -338,6 +341,7 @@ button { cursor: pointer; }
       <button type="button" data-v="all">Whole chart</button>
     </div>
     <label class="switch" title="Punctuation, quotes and dashes must match the chart"><input type="checkbox" id="exact"><span class="sw" aria-hidden="true"></span>Exact punctuation</label>
+    <label class="switch sub" id="spellWrap" title="When off, a small typo still counts as right"><input type="checkbox" id="spell"><span class="sw" aria-hidden="true"></span>Exact spelling</label>
     </div>
   </header>
 
@@ -488,7 +492,7 @@ function matchLevel(value, term) {
 }
 
 /* ================= SETTINGS ================= */
-const S = { course: "apush", count: 3, custom: null, mode: "row", exact: true };
+const S = { course: "apush", count: 3, custom: null, mode: "row", exact: true, spell: true };
 try { Object.assign(S, JSON.parse(localStorage.getItem("ccd2") || "{}")); } catch (e) {}
 if (!COURSES[S.course]) S.course = "apush";
 const save = () => { try { localStorage.setItem("ccd2", JSON.stringify(S)); } catch (e) {} };
@@ -636,6 +640,11 @@ function paintSettings() {
   paintSeg($("#courseSeg"), S.course);
   paintSeg($("#modeSeg"), S.mode);
   $("#exact").checked = S.exact;
+  $("#spell").checked = S.spell !== false;
+  // Exact spelling only matters once punctuation is relaxed
+  const sw = $("#spellWrap");
+  sw.classList.toggle("gone", S.exact);
+  sw.inert = S.exact;
   const rows = quizRows(), n = course().eras.length;
   const contiguous = rows.every((v, k) => v === k);
   $("#rowsTxt").textContent = contiguous ? (rows.length === 1 ? "Row 1" : `Rows 1–${rows.length}`) : `${rows.length} row${rows.length > 1 ? "s" : ""}`;
@@ -662,9 +671,14 @@ $("#modeSeg").addEventListener("click", (e) => {
   markDirty();
 });
 $("#exact").addEventListener("change", (e) => {
-  S.exact = e.target.checked; save(); markDirty();
+  S.exact = e.target.checked; save(); markDirty(); paintSettings();
   const n = regrade();
   toast((S.exact ? "Exact punctuation on" : "Punctuation and order in a box won’t count") + (n ? " · re-checked your answers" : ""));
+});
+$("#spell").addEventListener("change", (e) => {
+  S.spell = e.target.checked; save(); markDirty();
+  const n = regrade();
+  toast((S.spell ? "Spelling must match the chart" : "Small typos count as right") + (n ? " · re-checked your answers" : ""));
 });
 $("#rowsBtn").addEventListener("click", (e) => {
   e.stopPropagation();
@@ -758,6 +772,7 @@ function focusFirst() {
 function scope() { return cells.filter((c) => c.blank && !locked(c) && (S.mode !== "row" || c.era === active)); }
 
 // Grade these cells in place (state + note). Used by Check and when Exact punctuation changes.
+const typosOk = () => !S.exact && S.spell === false;
 function gradeTargets(targets) {
   const groups = {};
   targets.forEach((c) => (groups[c.group] = groups[c.group] || []).push(c));
@@ -769,15 +784,22 @@ function gradeTargets(targets) {
     list.forEach((c) => {
       if (taken.has(c.id)) return;
       if (c.lvl === "exact" || (c.lvl === "loose" && !S.exact)) { c.state = "ok"; c.match = c.id; taken.add(c.id); }
+      else if (typosOk() && isTypo(c.value, c.term)) { c.state = "ok"; c.match = c.id; taken.add(c.id); c.note = explain(c.value, c.term, true); }
     });
     // a right answer that belongs on another line of the same box
     list.forEach((c) => {
       if (c.state || !c.value.trim()) return;
       const other = list.find((o) => o !== c && !taken.has(o.id) && matchLevel(c.value, o.term));
-      if (other && !S.exact) { c.state = "ok"; c.match = other.id; taken.add(other.id); }
+      const typoOther = !other && typosOk() && list.find((o) => o !== c && !taken.has(o.id) && isTypo(c.value, o.term));
+      if (typoOther) { c.state = "ok"; c.match = typoOther.id; taken.add(typoOther.id); c.note = explain(c.value, typoOther.term, true); }
+      else if (other && !S.exact) { c.state = "ok"; c.match = other.id; taken.add(other.id); }
       else if (other) { c.state = "bad"; c.note = "Right term, other line"; }
-      else if (c.lvl === "loose" || isNear(c.value, c.term)) { c.state = "close"; c.note = explain(c.value, c.term); }
-      else c.state = "bad";
+      else if (c.lvl === "loose") { c.state = "close"; c.note = explain(c.value, c.term); }
+      else {
+        const kind = nearKind(c.value, c.term);
+        if (kind === "typo") { c.state = "close"; c.note = explain(c.value, c.term); }
+        else { c.state = "bad"; c.note = kind === "numbers" ? "Check the numbers" : kind === "other-term" ? "That’s a different term on the chart" : ""; }
+      }
     });
   });
 }
@@ -803,7 +825,8 @@ function check() {
     sweep(ei, d); sweepEnd = Math.max(sweepEnd, d + 500);
   });
   const parts = [];
-  if (ok) parts.push(`<b class="g">${ok} right</b>`);
+  const typos = targets.filter((c) => c.state === "ok" && c.note).length;
+  if (ok) parts.push(`<b class="g">${ok} right${typos ? ` (${typos} with typos)` : ""}</b>`);
   if (close) parts.push(`<b class="y">${close} almost</b>`);
   if (bad) parts.push(`<b class="r">${bad} wrong</b>`);
   if (empty) parts.push(`${empty} blank`);
@@ -848,11 +871,14 @@ function ckey(ch) {
 }
 const isWordChar = (ch) => /[\p{L}\p{N}]/u.test(ch);
 function editDistance(a, b) {
-  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j), prev2 = prev;
   for (let i = 1; i <= a.length; i++) {
     const cur = [i];
-    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    prev = cur;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
+    }
+    prev2 = prev; prev = cur;
   }
   return prev[b.length];
 }
@@ -862,6 +888,20 @@ function isNear(value, term) {
   if (!v || !t) return false;
   return editDistance(v, t) <= Math.min(3, Math.max(1, Math.floor(t.length / 5)));
 }
+// Is a close spelling a real typo? Not if the numbers differ (a wrong year) or it's another term on the chart (WW I vs WW II).
+let chartTerms = null, chartTermsFor = "";
+function nearKind(value, term) {
+  if (!isNear(value, term)) return null;
+  const digits = (x) => (normLoose(x).match(/\d+/g) || []).join(",");
+  if (digits(value) !== digits(term.t)) return "numbers";
+  if (chartTermsFor !== S.course) {
+    chartTermsFor = S.course; chartTerms = new Set();
+    course().eras.forEach((e) => [e.name, e.dates, ...e.b, ...e.m, ...e.e].forEach((x) => chartTerms.add(normLoose(T(x).t))));
+  }
+  const v = normLoose(value);
+  return v !== normLoose(term.t) && chartTerms.has(v) ? "other-term" : "typo";
+}
+const isTypo = (value, term) => nearKind(value, term) === "typo";
 // Character diff of what was typed (a) against the chart (b): eq / del (typed, not on chart) / ins (on chart, not typed)
 function diffChars(a, b) {
   const A = [...a.trim().replace(/\s+/g, " ")], B = [...b], n = A.length, m = B.length;
@@ -885,12 +925,13 @@ const MARK = { "'": "apostrophe", '"': "quotation marks", "/": "slash", "?": "qu
 const markName = (ch) => (ckey(ch) === "-" ? (/[–—]/.test(ch) ? "dash" : "hyphen") : MARK[ckey(ch)] || "“" + ch + "”");
 function listWords(a) { return a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
 // Say what was off, and show the chart's version with the fix marked
-function explain(value, term) {
+function explain(value, term, accepted) {
   const ops = diffChars(value, term.t);
   const ins = ops.filter((o) => o.t === "ins").map((o) => o.ch), del = ops.filter((o) => o.t === "del").map((o) => o.ch);
   const reasons = [];
   const wordEdits = [...ins, ...del].filter(isWordChar).length;
-  if (wordEdits) reasons.push(normLoose(value) === normLoose(term.t) || matchLevel(value, term) ? "The chart words it differently" : "Spelling");
+  const digitEdits = [...ins, ...del].filter((c) => /\d/.test(c)).length;
+  if (wordEdits) reasons.push(normLoose(value) === normLoose(term.t) || matchLevel(value, term) ? "The chart words it differently" : digitEdits === wordEdits ? "Check the numbers" : "Spelling");
   const missing = [...new Set(ins.filter((c) => c !== " " && !isWordChar(c)).map(markName))];
   const extra = [...new Set(del.filter((c) => c !== " " && !isWordChar(c)).map(markName))];
   if (missing.length) reasons.push("Missing " + listWords(missing));
@@ -905,6 +946,7 @@ function explain(value, term) {
         const tag = o.t === "ins" ? (o.ch === " " ? '<ins class="sp">' : "<ins>") : "<del>";
         return h + (o.t === "eq" ? ch : (open ? tag : "") + ch + (close ? (o.t === "ins" ? "</ins>" : "</del>") : ""));
       }, "");
+  if (accepted) reasons.splice(0, reasons.length, "Small typo, counted as right");
   return `<span class="why">${reasons.join(" · ") || "Almost"}</span><span class="ans">Chart: <span class="dif">${shown}</span></span>`;
 }
 
