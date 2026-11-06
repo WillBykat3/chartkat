@@ -15,7 +15,7 @@
 
 const TABS = {
   Users: ["Username", "Key", "Created", "Last seen"],
-  Results: ["Time", "Username", "Class", "Rows", "Mode", "Exact punctuation", "Blanks", "Correct", "First try", "Fixed after a miss", "Revealed", "Score %", "Seconds"],
+  Results: ["Time", "Username", "Class", "Rows", "Mode", "Exact punctuation", "Blanks", "Correct", "First try", "Fixed after a miss", "Revealed", "Score %", "Seconds", "Exact spelling"],
   Progress: ["Key", "Class", "Updated", "State"]
 };
 // Columns kept as plain text, so Sheets never turns "007" into 7 or "1-3" into a date
@@ -60,6 +60,11 @@ function tab_(name) {
     sh.appendRow(TABS[name]);
     sh.setFrozenRows(1);
     sh.getRange(1, 1, 1, TABS[name].length).setFontWeight("bold");
+  } else if (sh.getLastColumn() < TABS[name].length) {
+    // a tab made by an older version of this script: add the new column headings
+    const head = sh.getRange(1, 1, 1, TABS[name].length);
+    head.setValues([TABS[name]]);
+    head.setFontWeight("bold");
   }
   return sh;
 }
@@ -136,7 +141,9 @@ function result_(p) {
   const score = blanks ? Math.round(correct / blanks * 100) : 0;
   tab_("Results").appendRow([
     new Date(), user.name, cls, text_(r.rows), r.mode === "row" ? "Row by row" : "Whole chart", r.exact ? "Yes" : "No",
-    blanks, correct, num_(r.firstTry), num_(r.fixed), num_(r.revealed), score, num_(r.seconds)
+    blanks, correct, num_(r.firstTry), num_(r.fixed), num_(r.revealed), score, num_(r.seconds),
+    // spelling only relaxes when punctuation does; older pages don't send it
+    r.exact ? "Yes" : r.spell === false ? "No (small typos OK)" : r.spell === true ? "Yes" : ""
   ]);
   clearProgress_(key_(user.name), cls);
   return { ok: true, score: score, first: before === undefined, newBest: before === undefined || score > before, best: best_(key_(user.name)) };

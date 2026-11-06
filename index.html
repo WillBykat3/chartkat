@@ -220,6 +220,36 @@ button { cursor: pointer; }
 
 #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
 
+/* ---------- print ---------- */
+.print-wrap { position: relative; }
+.print-pop { left: auto; right: 0; width: 270px; padding: 6px; transform-origin: top right; }
+.pitem { display: grid; gap: 2px; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 8px; padding: 9px 10px; font-family: var(--f-ui); }
+.pitem:hover, .pitem:focus-visible { background: var(--soft); }
+.pitem span { color: var(--muted); font-size: .82rem; }
+#printSheet { display: none; }
+@media print {
+  @page { size: letter portrait; margin: .5in; }
+  html, body { background: #fff !important; color: #000 !important; padding: 0 !important; margin: 0 !important; }
+  body > *:not(#printSheet) { display: none !important; }
+  #printSheet { display: block; font-family: var(--f-doc); color: #000; font-size: 11pt; line-height: 1.25; }
+  #printSheet * { animation: none !important; transition: none !important; }
+  .p-top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 10px; }
+  .p-top h1 { font-size: 16pt; margin: 0; }
+  .p-sub { font-size: 9.5pt; color: #444; white-space: nowrap; }
+  .p-fill { display: flex; gap: 22px; margin: 0 0 12px; font-size: 11pt; }
+  .p-fill span { flex: 1; border-bottom: 1px solid #000; padding-bottom: 2px; }
+  .p-fill span.short { flex: .45; }
+  .p-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .p-table th, .p-table td { border: 1px solid #000; padding: 4px 6px 6px; vertical-align: top; text-align: left; overflow-wrap: break-word; }
+  .p-table th { text-align: center; font-weight: 700; padding: 3px 6px; }
+  .p-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .p-t { padding: 2px 0; min-height: 1.25em; }
+  .p-t + .p-t { margin-top: 6px; }
+  .p-ans { font-weight: 700; }
+  .p-line { height: .33in; border-bottom: 1px solid #777; }
+  .p-note { margin-top: 10px; font-size: 9pt; color: #444; }
+}
+
 /* ---------- accounts ---------- */
 .acct-wrap { position: relative; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; width: 100%; }
@@ -297,6 +327,7 @@ button { cursor: pointer; }
   .lines { gap: 10px; }
   .hl::before { left: -12px; }
   .acct .nm { max-width: 84px; }
+  #printBtn .lg { display: none; }
   .dbtn { padding: 10px 11px; }
 }
 @media (max-width: 460px) {
@@ -316,6 +347,13 @@ button { cursor: pointer; }
 <div class="wrap">
   <header class="bar">
     <div class="brand"><i aria-hidden="true"></i>Course Chart Drill</div>
+    <div class="print-wrap" id="printWrap" hidden>
+      <button type="button" class="chipbtn" id="printBtn" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg><span class="lg">Print</span></button>
+      <div class="pop print-pop" id="printPop" hidden>
+        <button type="button" class="pitem" data-print="quiz"><b>Blank quiz</b><span id="printQuizSub">The rows you picked are blank</span></button>
+        <button type="button" class="pitem" data-print="key"><b>Answer key</b><span>Same sheet with every answer filled in</span></button>
+      </div>
+    </div>
     <div class="acct-wrap" id="acctWrap" hidden>
       <button type="button" class="chipbtn acct" id="acctBtn" aria-haspopup="true" aria-expanded="false"></button>
       <div class="pop acct-pop" id="acctPop" hidden></div>
@@ -361,6 +399,7 @@ button { cursor: pointer; }
 <div id="doneSlot"></div>
 <div id="loginSlot"></div>
 <canvas id="confetti" hidden></canvas>
+<div id="printSheet" aria-hidden="true"></div>
 
 <script>
 (function () {
@@ -1036,11 +1075,11 @@ function finish() {
   $("#reviewBtn").addEventListener("click", closeDone);
   $("#scrim").addEventListener("click", (e) => { if (e.target.id === "scrim") closeDone(); });
   setTimeout(() => { const a = $("#againBtn"); if (a) a.focus(); }, 50);
-  saveResult({ course: label(), rows: rowsLabel(), mode: S.mode, exact: S.exact, blanks: b.length, correct: ok,
+  saveResult({ course: label(), rows: rowsLabel(), mode: S.mode, exact: S.exact, spell: S.exact || S.spell !== false, blanks: b.length, correct: ok,
     firstTry, fixed: ok - firstTry, revealed: shown, seconds: secs });
 }
 function closeDone() { $("#doneSlot").innerHTML = ""; }
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDone(); closeLogin(); closeAcctPop(); $("#rowsPop").hidden = true; $("#rowsBtn").setAttribute("aria-expanded", "false"); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDone(); closeLogin(); closeAcctPop(); closePrintPop(); $("#rowsPop").hidden = true; $("#rowsBtn").setAttribute("aria-expanded", "false"); } });
 function countUp(el, to) {
   if (reduceMotion) { el.textContent = to + "%"; return; }
   const t0 = performance.now();
@@ -1076,6 +1115,47 @@ function confetti() {
 const repaintSegs = () => { paintSeg($("#courseSeg"), S.course); paintSeg($("#modeSeg"), S.mode); };
 addEventListener("resize", () => { repaintSegs(); fitAll(); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { repaintSegs(); fitAll(); });
+
+/* ================= PRINT ================= */
+// The Claude viewer can't open the print dialog, so only offer printing when the page isn't framed.
+let framed = true;
+try { framed = window.top !== window.self; } catch (e) {}
+$("#printWrap").hidden = framed;
+
+function printHTML(key) {
+  const C = course(), rows = new Set(quizRows());
+  const line = () => `<div class="p-line"></div>`;
+  const out = (term, blank) => (blank && !key ? line() : `<div class="p-t${blank ? " p-ans" : ""}">${display(T(term))}</div>`);
+  let h = `<div class="p-top"><h1>${esc(C.title)}</h1><span class="p-sub">${key ? "Answer key · " : ""}${esc(rowsLabel())}</span></div>
+    ${key ? "" : `<div class="p-fill"><span>Name</span><span class="short">Date</span><span class="short">Period</span></div>`}
+    <table class="p-table"><colgroup><col style="width:15%"><col style="width:13%"><col><col><col></colgroup>
+    <thead><tr><th>${esc(C.nameHeader || "Name")}</th><th>Dates</th><th>Beginning</th><th>Middle</th><th>End</th></tr></thead><tbody>`;
+  C.eras.forEach((e, ei) => {
+    const q = rows.has(ei);
+    h += `<tr><td>${out(e.name, q)}</td><td>${out(e.dates, q)}</td>` + COLS.map(([k]) => `<td>${e[k].map((t) => out(t, q)).join("")}</td>`).join("") + `</tr>`;
+  });
+  h += `</tbody></table>`;
+  if (key) h += `<p class="p-note">Bold answers are the rows on the quiz.</p>`;
+  return h;
+}
+function printSheet(key) {
+  closePrintPop();
+  $("#printSheet").innerHTML = printHTML(key);
+  // let the sheet lay out before the dialog opens
+  requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+}
+function closePrintPop() { const p = $("#printPop"); if (!p.hidden) { p.hidden = true; $("#printBtn").setAttribute("aria-expanded", "false"); } }
+$("#printBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const p = $("#printPop");
+  if (p.hidden) {
+    $("#printQuizSub").textContent = `${rowsLabel()} blank, the rest printed`;
+    p.hidden = false; $("#printBtn").setAttribute("aria-expanded", "true");
+  } else closePrintPop();
+});
+$("#printPop").addEventListener("click", (e) => { const b = e.target.closest("[data-print]"); if (b) printSheet(b.dataset.print === "key"); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".print-wrap")) closePrintPop(); });
+addEventListener("afterprint", () => { $("#printSheet").innerHTML = ""; });
 
 /* ================= ACCOUNTS (Google Sheet) ================= */
 const ACC = { name: null, best: {}, progress: {}, offered: {}, status: "" };

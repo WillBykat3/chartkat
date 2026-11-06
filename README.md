@@ -8,6 +8,7 @@ A one-page quiz that looks like the paper course chart. Type the missing parts s
 - **Check** marks answers right, wrong, or "check punctuation". Wrong answers stay editable.
 - **Reveal:** the eye on any blank (or Alt+R) shows that one answer. **Give up** / **Reveal row** shows the rest.
 - **Exact punctuation** (on by default) follows the handout's rule that punctuation and order matter. Capitals never count.
+- **Print:** the Print button (top right) prints a blank paper quiz of the rows you picked, with a writing line for each term, or an answer key. It only appears on the GitHub Pages site; the Claude artifact link can't open a print dialog.
 - **Accounts (optional):** type a username to make an account. No email or password. Finished quizzes, best score per class and unfinished quizzes are saved to a Google Sheet you own.
 
 Open `index.html` in any browser. No build step and no dependencies apart from Google Fonts.
@@ -46,6 +47,8 @@ The site has to be on a normal web host. The Claude artifact link blocks connect
 3. After a minute or two the site is at `https://willbykat3.github.io/chartkat/`.
 
 ### If you change `Code.gs` later
+
+Paste the new `Code.gs` over the old one in the Apps Script editor and click **Save** first.
 
 Saving the script isn't enough. Go to **Deploy → Manage deployments**, click the pencil, set **Version** to **New version**, and click **Deploy**. The URL stays the same.
 
