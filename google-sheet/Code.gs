@@ -20,7 +20,6 @@ const TABS = {
 };
 // Columns kept as plain text, so Sheets never turns "007" into 7 or "1-3" into a date
 const TEXT_COLS = { Users: "A:B", Results: "B:F", Progress: "A:D" };
-const CLASSES = ["APUSH", "AP World"];
 
 function doGet(e) { return handle_((e && e.parameter) || {}); }
 function doPost(e) {
@@ -84,8 +83,10 @@ function cleanName_(u) {
   return u;
 }
 const key_ = (u) => u.toLowerCase();
+// Any class the site adds later works without changing this script: a short plain name like "APUSH" or "Bible"
 function cleanClass_(c) {
-  if (CLASSES.indexOf(c) === -1) throw new Error("Unknown class");
+  c = String(c || "");
+  if (!/^[A-Za-z][A-Za-z0-9 ]{1,23}$/.test(c)) throw new Error("Unknown class");
   return c;
 }
 const num_ = (x) => { const n = Number(x); return isFinite(n) ? Math.max(0, Math.round(n)) : 0; };

@@ -64,4 +64,5 @@ Saving the script isn't enough. Go to **Deploy → Manage deployments**, click t
 The chart lives in the `COURSES` object near the top of the `<script>` in `index.html`.
 
 - **APUSH** is transcribed from the *APUSH Course Chart 2026-2027* handout, including the themes page.
+- **Bible** is transcribed from the *Timeline of Biblical History* handout: 16 rows of event and dates. Its **Test format** option (in the Rows menu) builds a quiz like the real test: all of rows 9–12 blank plus 12 random blanks in rows 1–8, 20 in all.
 - **AP World** is transcribed from the class's AP World course chart. So far it has rows 1 and 2 (Post-Classical Era and Early Modern Era). Add more rows to the `eras` list when they come, and raise `version` if you change existing terms, so old unfinished quizzes aren't offered back.

@@ -97,6 +97,11 @@ button { cursor: pointer; }
 .pop label { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 6px; cursor: pointer; font-size: .95rem; }
 .pop label:hover { background: var(--soft); }
 .pop label input { width: 16px; height: 16px; accent-color: var(--pen); margin: 0; flex: none; }
+.pop .test-opt { align-items: flex-start; padding: 8px 6px; margin-bottom: 6px; border-bottom: 1px solid var(--line); border-radius: 6px 6px 0 0; }
+.pop .test-opt input { margin-top: 3px; }
+.pop .test-opt span { display: grid; gap: 1px; }
+.pop .test-opt small { margin: 0; white-space: normal; }
+.pop.testing .pop-step, .pop.testing #rowsList { opacity: .45; }
 .pop label small { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ---------- the paper ---------- */
@@ -113,6 +118,7 @@ button { cursor: pointer; }
 .tr > div:first-child { border-left: 0; }
 .th > div { font-weight: 700; text-align: center; padding: 3px 6px; }
 .lines { display: grid; gap: 14px; }
+.table.two { --cols: minmax(0, 1.25fr) minmax(0, 1fr); }
 .t { min-height: 1.4em; overflow-wrap: break-word; }
 .t em { font-style: italic; }
 .lbl { display: none; }
@@ -249,6 +255,7 @@ button { cursor: pointer; }
   .p-t + .p-t { margin-top: 6px; }
   .p-ans { font-weight: 700; }
   .p-line { height: .33in; border-bottom: 1px solid #777; }
+  .p-n { font-weight: 700; text-align: center !important; }
   .p-note { margin-top: 10px; font-size: 9pt; color: #444; }
 }
 
@@ -265,7 +272,7 @@ button { cursor: pointer; }
 .acct-pop { left: auto; right: 0; width: 310px; transform-origin: top right; }
 .acct-pop h4 { margin: 0; font-size: 1.1rem; overflow-wrap: anywhere; }
 .acct-pop .sub { color: var(--muted); font-size: .85rem; margin: 2px 0 12px; }
-.bests { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.bests { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
 .bests div { background: var(--soft); border-radius: 8px; padding: 8px 10px; }
 .bests span { display: block; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .bests b { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
@@ -365,10 +372,12 @@ button { cursor: pointer; }
       <span class="thumb" aria-hidden="true"></span>
       <button type="button" data-v="apush">APUSH</button>
       <button type="button" data-v="world">AP World</button>
+      <button type="button" data-v="bible">Bible</button>
     </div>
     <div class="rows-wrap">
       <button type="button" class="chipbtn" id="rowsBtn" aria-expanded="false" aria-haspopup="true"><span id="rowsTxt">Rows 1–3</span><span class="caret" aria-hidden="true">▾</span></button>
       <div class="pop" id="rowsPop" hidden>
+        <label class="test-opt" id="testOpt" hidden><input type="checkbox" id="testFmt"><span><b>Test format</b><small id="testSub"></small></span></label>
         <div class="pop-step">Quiz on the first
           <span class="stepper"><button type="button" id="rowsMinus" aria-label="Fewer rows">−</button><output id="rowsOut">3</output><button type="button" id="rowsPlus" aria-label="More rows">+</button></span>
         </div>
@@ -488,8 +497,41 @@ const COURSES = {
     ]
   }
 };
+COURSES.bible = {
+  version: 1,
+  title: "II. Timeline of Biblical History",
+  nameHeader: "Event",
+  cols: [],
+  intro: "For this test, you will be tested over rows 1–12 of this timeline. There will be twenty (20) blanks total. Some of rows 1–8 (in light gray) will be blank (12 blanks), and all of rows 9–12 (in white) will be blank (8 blanks). Each blank will be worth 1 point, totaling 20 points.",
+  themesTitle: "",
+  themes: [],
+  source: "Recreated from the Timeline of Biblical History handout.",
+  sample: false,
+  // the real test: 12 of the 16 boxes in rows 1–8, plus every box in rows 9–12
+  test: { some: [0, 1, 2, 3, 4, 5, 6, 7], someCount: 12, all: [8, 9, 10, 11], label: "Rows 1–12 · 20 blanks, like the real test" },
+  eras: [
+    { name: "Creation", dates: "prehistory" },
+    { name: "Ancestors", dates: "2000 – 1300 BCE" },
+    { name: "Exodus from Egypt", dates: "1300 BCE" },
+    { name: "Wilderness", dates: "1300 – 1250 BCE" },
+    { name: "Conquest of Canaan", dates: "1250 – 1200 BCE" },
+    { name: "Judges", dates: "1200 – 1020 BCE" },
+    { name: "United Monarchy", dates: "1020 – 922 BCE" },
+    { name: "Divided Monarchy", dates: "922 – 586 BCE" },
+    { name: "Fall of Jerusalem", dates: "586 BCE" },
+    { name: "Babylonian Exile", dates: "586 – 539 BCE" },
+    { name: "Second Temple Judaism", dates: "513 BCE – 70 CE" },
+    { name: "Persian Empire", dates: "539 – 333 BCE" },
+    { name: "Greek Empire", dates: "333 – 63 BCE" },
+    { name: "Roman Empire", dates: "27 BCE – 476 CE" },
+    { name: "Jesus", dates: "3 BCE – 30 CE" },
+    { name: "New Testament Period", dates: "30 – 150 CE" }
+  ]
+};
 const COLS = [["b", "Beginning"], ["m", "Middle"], ["e", "End"]];
-const LABELS = { apush: "APUSH", world: "AP World" };
+// term columns of the current chart (the Bible timeline has none)
+const cols = () => course().cols || COLS;
+const LABELS = { apush: "APUSH", world: "AP World", bible: "Bible" };
 
 /* Accounts: the web app URL of the Google Sheet script (google-sheet/Code.gs).
    Leave it empty to turn accounts off. */
@@ -533,13 +575,28 @@ function matchLevel(value, term) {
 }
 
 /* ================= SETTINGS ================= */
-const S = { course: "apush", count: 3, custom: null, mode: "row", exact: true, spell: true };
+const S = { course: "apush", count: 3, custom: null, mode: "row", exact: true, spell: true, test: false };
 try { Object.assign(S, JSON.parse(localStorage.getItem("ccd2") || "{}")); } catch (e) {}
 if (!COURSES[S.course]) S.course = "apush";
 const save = () => { try { localStorage.setItem("ccd2", JSON.stringify(S)); } catch (e) {} };
 const course = () => COURSES[S.course];
+// Test format: which boxes are blank is picked at random, per chart
+let testKeys = null;
+const testMode = () => !!(S.test && course().test);
+function pickTestKeys() {
+  const t = course().test, keys = [];
+  const both = (ei) => [ei + "-name-0", ei + "-dates-0"];
+  const pool = t.some.flatMap(both);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  keys.push(...pool.slice(0, t.someCount), ...t.all.flatMap(both));
+  testKeys = new Set(keys); testKeys.course = S.course;
+}
 function quizRows() {
   const n = course().eras.length;
+  if (testMode()) {
+    if (!testKeys || testKeys.course !== S.course) pickTestKeys();
+    return [...new Set([...testKeys].map((k) => parseInt(k, 10)))].sort((a, b) => a - b);
+  }
   if (S.custom && S.custom.length) return S.custom.filter((i) => i < n).sort((a, b) => a - b);
   return Array.from({ length: Math.min(Math.max(1, S.count), n) }, (_, i) => i);
 }
@@ -555,12 +612,12 @@ function build() {
   course().eras.forEach((era, ei) => {
     const add = (kind, col, pos, term) => {
       const key = ei + "-" + col + "-" + pos;
-      cells.push({ id: cells.length, course: S.course, key, era: ei, kind, col, group: ei + "-" + col, term: T(term), blank: rows.has(ei),
+      cells.push({ id: cells.length, course: S.course, key, era: ei, kind, col, group: ei + "-" + col, term: T(term), blank: testMode() ? testKeys.has(key) : rows.has(ei),
         value: kept[S.course + "|" + key] || "", state: "", match: null, first: null, note: "" });
     };
     add("name", "name", 0, era.name);
     add("dates", "dates", 0, era.dates);
-    COLS.forEach(([k]) => era[k].forEach((t, p) => add("term", k, p, t)));
+    cols().forEach(([k]) => era[k].forEach((t, p) => add("term", k, p, t)));
   });
   const seen = {};
   cells.forEach((c) => { c.idx = seen[c.era] = (seen[c.era] ?? -1) + 1; });
@@ -582,14 +639,14 @@ function renderPaper(animate) {
   const rows = new Set(quizRows());
   let h = `<h1 class="doc-title">${esc(C.title)}${C.sample ? '<span class="doc-tag">Sample</span>' : ""}</h1>
     ${C.intro ? `<p class="doc-intro">${esc(C.intro)}</p>` : ""}
-    <div class="table" id="table"><div class="hl" id="hl" aria-hidden="true"></div>
-      <div class="tr th"><div>${esc(C.nameHeader || "Name")}</div><div>Dates</div><div>Beginning</div><div>Middle</div><div>End</div></div>`;
+    <div class="table${cols().length ? "" : " two"}" id="table"><div class="hl" id="hl" aria-hidden="true"></div>
+      <div class="tr th"><div>${esc(C.nameHeader || "Name")}</div><div>Dates</div>${cols().map(([, l]) => `<div>${l}</div>`).join("")}</div>`;
   C.eras.forEach((era, ei) => {
     const mine = cells.filter((c) => c.era === ei);
     h += `<div class="tr${rows.has(ei) ? " quiz" : ""}" data-row="${ei}"${rows.has(ei) ? ` style="--qd:${[...rows].indexOf(ei) * 70}ms"` : ""}>
       <div class="c-name"><span class="lbl">${esc(C.nameHeader || "Name")}</span>${fieldHTML(mine.find((c) => c.kind === "name"))}</div>
       <div class="c-dates"><span class="lbl">Dates</span>${fieldHTML(mine.find((c) => c.kind === "dates"))}</div>`;
-    COLS.forEach(([k, label]) => {
+    cols().forEach(([k, label]) => {
       h += `<div class="c-col"><span class="lbl">${label}</span><div class="lines">${mine.filter((c) => c.col === k).map(fieldHTML).join("")}</div></div>`;
     });
     h += `</div>`;
@@ -688,7 +745,12 @@ function paintSettings() {
   sw.inert = S.exact;
   const rows = quizRows(), n = course().eras.length;
   const contiguous = rows.every((v, k) => v === k);
-  $("#rowsTxt").textContent = contiguous ? (rows.length === 1 ? "Row 1" : `Rows 1–${rows.length}`) : `${rows.length} row${rows.length > 1 ? "s" : ""}`;
+  const t = course().test;
+  $("#testOpt").hidden = !t;
+  $("#testFmt").checked = testMode();
+  if (t) $("#testSub").textContent = t.label;
+  $("#rowsPop").classList.toggle("testing", testMode());
+  $("#rowsTxt").textContent = testMode() ? "Test format" : contiguous ? (rows.length === 1 ? "Row 1" : `Rows 1–${rows.length}`) : `${rows.length} row${rows.length > 1 ? "s" : ""}`;
   $("#rowsOut").textContent = contiguous ? rows.length : "–";
   $("#rowsList").innerHTML = course().eras.map((e, i) =>
     `<label><input type="checkbox" data-row="${i}" ${rows.includes(i) ? "checked" : ""}> ${i + 1}. ${esc(e.name)} <small>${esc(T(e.dates).t)}</small></label>`).join("");
@@ -729,7 +791,11 @@ $("#rowsBtn").addEventListener("click", (e) => {
 document.addEventListener("click", (e) => {
   if (!$("#rowsPop").hidden && !e.target.closest(".rows-wrap")) { $("#rowsPop").hidden = true; $("#rowsBtn").setAttribute("aria-expanded", "false"); }
 });
-function setCount(n) { S.custom = null; S.count = Math.min(Math.max(1, n), course().eras.length); changeRows(); }
+$("#testFmt").addEventListener("change", (e) => { S.test = e.target.checked; testKeys = null; changeRows(); });
+function setCount(n) {
+  // leaving test format: go back to the rows you had, don't count from the test's rows
+  if (testMode()) { S.test = false; changeRows(); return; }
+  S.custom = null; S.count = Math.min(Math.max(1, n), course().eras.length); changeRows(); }
 // Fade printed terms out and draw blank lines in (or the reverse) for rows that join or leave the quiz
 let rowsTimer;
 function changeRows() {
@@ -756,6 +822,7 @@ $("#rowsPlus").addEventListener("click", () => setCount(quizRows().length + 1));
 $("#rowsList").addEventListener("change", (e) => {
   const arr = $$("#rowsList input").filter((b) => b.checked).map((b) => +b.dataset.row);
   if (!arr.length) { e.target.checked = true; return; }
+  S.test = false;
   if (arr.every((v, k) => v === k)) { S.custom = null; S.count = arr.length; } else S.custom = arr;
   changeRows();
 });
@@ -937,7 +1004,7 @@ function nearKind(value, term) {
   if (digits(value) !== digits(term.t)) return "numbers";
   if (chartTermsFor !== S.course) {
     chartTermsFor = S.course; chartTerms = new Set();
-    course().eras.forEach((e) => [e.name, e.dates, ...e.b, ...e.m, ...e.e].forEach((x) => chartTerms.add(normLoose(T(x).t))));
+    course().eras.forEach((e) => [e.name, e.dates, ...(e.b || []), ...(e.m || []), ...(e.e || [])].forEach((x) => chartTerms.add(normLoose(T(x).t))));
   }
   const v = normLoose(value);
   return v !== normLoose(term.t) && chartTerms.has(v) ? "other-term" : "typo";
@@ -1045,7 +1112,7 @@ function reveal(list) {
 }
 $("#giveBtn").addEventListener("click", () => reveal(S.mode === "row" ? rowCells(active) : cells.filter((c) => c.blank)));
 $("#checkBtn").addEventListener("click", check);
-function restart() { kept = {}; cells.forEach((c) => (c.value = "")); applySettings(true); dirty = true; saveProgress(); setTimeout(focusFirst, 300); }
+function restart() { testKeys = null; kept = {}; cells.forEach((c) => (c.value = "")); applySettings(true); dirty = true; saveProgress(); setTimeout(focusFirst, 300); }
 $("#resetBtn").addEventListener("click", () => { restart(); toast("Cleared"); });
 
 /* ================= FINISH ================= */
@@ -1125,19 +1192,20 @@ try { framed = window.top !== window.self; } catch (e) {}
 $("#printWrap").hidden = framed;
 
 function printHTML(key) {
-  const C = course(), rows = new Set(quizRows());
+  const C = course(), tc = cols();
   const line = () => `<div class="p-line"></div>`;
-  const out = (term, blank) => (blank && !key ? line() : `<div class="p-t${blank ? " p-ans" : ""}">${display(T(term))}</div>`);
+  const out = (c) => (c.blank && !key ? line() : `<div class="p-t${c.blank ? " p-ans" : ""}">${display(c.term)}</div>`);
   let h = `<div class="p-top"><h1>${esc(C.title)}</h1><span class="p-sub">${key ? "Answer key · " : ""}${esc(rowsLabel())}</span></div>
     ${key ? "" : `<div class="p-fill"><span>Name</span><span class="short">Date</span><span class="short">Period</span></div>`}
-    <table class="p-table"><colgroup><col style="width:15%"><col style="width:13%"><col><col><col></colgroup>
-    <thead><tr><th>${esc(C.nameHeader || "Name")}</th><th>Dates</th><th>Beginning</th><th>Middle</th><th>End</th></tr></thead><tbody>`;
+    <table class="p-table">${tc.length ? `<colgroup><col style="width:15%"><col style="width:13%"><col><col><col></colgroup>` : `<colgroup><col style="width:6%"><col style="width:52%"><col></colgroup>`}
+    <thead><tr>${tc.length ? "" : "<th>#</th>"}<th>${esc(C.nameHeader || "Name")}</th><th>Dates</th>${tc.map(([, l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>`;
   C.eras.forEach((e, ei) => {
-    const q = rows.has(ei);
-    h += `<tr><td>${out(e.name, q)}</td><td>${out(e.dates, q)}</td>` + COLS.map(([k]) => `<td>${e[k].map((t) => out(t, q)).join("")}</td>`).join("") + `</tr>`;
+    const mine = cells.filter((c) => c.era === ei), one = (kind) => mine.find((c) => c.kind === kind);
+    h += `<tr>${tc.length ? "" : `<td class="p-n">${ei + 1}</td>`}<td>${out(one("name"))}</td><td>${out(one("dates"))}</td>` +
+      tc.map(([k]) => `<td>${mine.filter((c) => c.col === k).map(out).join("")}</td>`).join("") + `</tr>`;
   });
   h += `</tbody></table>`;
-  if (key) h += `<p class="p-note">Bold answers are the rows on the quiz.</p>`;
+  if (key) h += `<p class="p-note">Bold answers are the blanks on the quiz.</p>`;
   return h;
 }
 function printSheet(key) {
@@ -1168,6 +1236,7 @@ const label = () => LABELS[S.course];
 let saveTimer = 0, retryTimer = 0, dirty = false, pendingResult = null;
 
 function rowsLabel() {
+  if (testMode()) return `Test format · ${testKeys.size} blanks`;
   const r = quizRows();
   return r.every((v, k) => v === k) ? (r.length === 1 ? "Row 1" : `Rows 1–${r.length}`) : "Rows " + r.map((i) => i + 1).join(", ");
 }
@@ -1282,6 +1351,7 @@ function snapshot() {
   if (finished || !hasWork()) return null;
   const b = cells.filter((c) => c.blank);
   return { v: 1, chart: course().version || 1, course: S.course, count: S.count, custom: S.custom, mode: S.mode, exact: S.exact, active,
+    testKeys: testMode() ? [...testKeys] : null,
     elapsed: startedAt ? Date.now() - startedAt : 0, rowsLabel: rowsLabel(),
     filled: b.filter((c) => locked(c) || c.value.trim()).length, total: b.length,
     cells: b.filter((c) => c.value || c.state).map((c) => ({ k: c.key, v: c.value, s: locked(c) ? c.state : "", f: c.first, m: c.match })) };
@@ -1326,7 +1396,8 @@ function offerResume() {
 }
 function restore(st) {
   if (!st || !COURSES[st.course]) return;
-  Object.assign(S, { course: st.course, count: st.count || 3, custom: Array.isArray(st.custom) ? st.custom : null, mode: st.mode === "all" ? "all" : "row" });
+  Object.assign(S, { course: st.course, count: st.count || 3, custom: Array.isArray(st.custom) ? st.custom : null, mode: st.mode === "all" ? "all" : "row", test: Array.isArray(st.testKeys) });
+  if (S.test) { testKeys = new Set(st.testKeys); testKeys.course = S.course; }
   save(); kept = {}; cells = []; build();
   const byKey = {}; cells.forEach((c) => (byKey[c.key] = c));
   (st.cells || []).forEach((x) => {
